@@ -1,0 +1,25 @@
+{
+  "name": "ToDo Planner",
+  "short_name": "Planner",
+  "description": "할일 관리, 노트 작성, 생일 알림을 한번에",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#5E6AD2",
+  "background_color": "#000000",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/next.svg",
+      "sizes": "180x38",
+      "type": "image/svg+xml"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "오늘 할 일",
+      "short_name": "오늘",
+      "url": "/?date=today",
+      "icons": [{ "src": "/next.svg", "sizes": "180x38", "type": "image/svg+xml" }]
+    }
+  ]
+}

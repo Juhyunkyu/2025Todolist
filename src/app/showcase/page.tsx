@@ -941,23 +941,65 @@ export default function ComponentsPage() {
               </div>
             </div>
 
-            {/* Glass Effect Card */}
+            {/* Glass Effect Card - 테마 적응형 */}
             <div
               style={{
-                background: "rgba(26, 27, 30, 0.8)",
+                background: (() => {
+                  switch (selectedTheme) {
+                    case "light":
+                      return "rgba(255, 255, 255, 0.85)";
+                    case "pastel":
+                      return "rgba(240, 248, 240, 0.85)";
+                    case "orange":
+                      return "rgba(26, 26, 26, 0.85)";
+                    default: // dark
+                      return "rgba(26, 27, 30, 0.8)";
+                  }
+                })(),
                 backdropFilter: "blur(10px)",
                 WebkitBackdropFilter: "blur(10px)",
-                border: "1px solid rgba(46, 47, 51, 0.5)",
+                border: (() => {
+                  switch (selectedTheme) {
+                    case "light":
+                      return "1px solid rgba(218, 220, 224, 0.6)";
+                    case "pastel":
+                      return "1px solid rgba(168, 230, 207, 0.6)";
+                    case "orange":
+                      return "1px solid rgba(255, 140, 66, 0.5)";
+                    default: // dark
+                      return "1px solid rgba(46, 47, 51, 0.5)";
+                  }
+                })(),
                 borderRadius: currentTheme.borderRadius.lg, // 0.5rem
                 padding: currentTheme.spacing["6"], // 1.5rem
-                boxShadow: currentTheme.shadows.glow,
+                boxShadow: (() => {
+                  switch (selectedTheme) {
+                    case "light":
+                      return "0 8px 32px rgba(0, 0, 0, 0.1)";
+                    case "pastel":
+                      return "0 8px 32px rgba(45, 74, 45, 0.15)";
+                    case "orange":
+                      return "0 8px 32px rgba(255, 107, 53, 0.2)";
+                    default: // dark
+                      return currentTheme.shadows.glow;
+                  }
+                })(),
               }}
             >
               <h3
                 style={{
                   fontSize: currentTheme.typography.fontSize.lg, // 1.125rem
                   fontWeight: currentTheme.typography.fontWeight.semibold, // 600
-                  color: currentTheme.colors.text.primary, // #FFFFFF
+                  color: (() => {
+                    switch (selectedTheme) {
+                      case "light":
+                        return "#1A1A1A"; // 다크 텍스트 (라이트 배경용)
+                      case "pastel":
+                        return "#1B3B1B"; // 진한 녹색 (파스텔 배경용)
+                      default:
+                        return currentTheme.colors.text.primary; // 기본값
+                    }
+                  })(),
                   marginBottom: currentTheme.spacing["2"], // 0.5rem
                 }}
               >
@@ -965,7 +1007,16 @@ export default function ComponentsPage() {
               </h3>
               <p
                 style={{
-                  color: currentTheme.colors.text.secondary, // #B4B4B4
+                  color: (() => {
+                    switch (selectedTheme) {
+                      case "light":
+                        return "#4A4A4A"; // 중간 회색 (라이트 배경용)
+                      case "pastel":
+                        return "#2D5A2D"; // 중간 녹색 (파스텔 배경용)
+                      default:
+                        return currentTheme.colors.text.secondary; // 기본값
+                    }
+                  })(),
                   fontSize: currentTheme.typography.fontSize.sm, // 0.875rem
                   marginBottom: currentTheme.spacing["4"], // 1rem
                 }}
@@ -974,15 +1025,49 @@ export default function ComponentsPage() {
               </p>
               <div
                 style={{
-                  background:
-                    "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
+                  color: (() => {
+                    switch (selectedTheme) {
+                      case "light":
+                        return "#5E6AD2"; // 브랜드 보라색 (라이트 배경에 잘 보임)
+                      case "pastel":
+                        return "#2D5A2D"; // 진한 녹색 (파스텔 배경에 잘 보임)
+                      case "orange":
+                        return "#FF6B35"; // 오렌지색 (어두운 배경에 잘 보임)
+                      default: // dark
+                        return "#A78BFA"; // 밝은 보라색 (다크 배경에 잘 보임)
+                    }
+                  })(),
                   fontSize: currentTheme.typography.fontSize.sm, // 0.875rem
                   fontWeight: currentTheme.typography.fontWeight.medium, // 500
+                  background: (() => {
+                    switch (selectedTheme) {
+                      case "light":
+                        return "linear-gradient(135deg, rgba(94, 106, 210, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%)";
+                      case "pastel":
+                        return "linear-gradient(135deg, rgba(45, 90, 45, 0.1) 0%, rgba(35, 80, 35, 0.1) 100%)";
+                      case "orange":
+                        return "linear-gradient(135deg, rgba(255, 107, 53, 0.1) 0%, rgba(255, 140, 66, 0.1) 100%)";
+                      default: // dark
+                        return "linear-gradient(135deg, rgba(167, 139, 250, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%)";
+                    }
+                  })(),
+                  padding: `${currentTheme.spacing["2"]} ${currentTheme.spacing["3"]}`, // 패딩 추가
+                  borderRadius: currentTheme.borderRadius.md, // 둥근 모서리
+                  border: (() => {
+                    switch (selectedTheme) {
+                      case "light":
+                        return "1px solid rgba(94, 106, 210, 0.2)";
+                      case "pastel":
+                        return "1px solid rgba(45, 90, 45, 0.2)";
+                      case "orange":
+                        return "1px solid rgba(255, 107, 53, 0.2)";
+                      default: // dark
+                        return "1px solid rgba(167, 139, 250, 0.2)";
+                    }
+                  })(),
                 }}
               >
-                그라데이션 텍스트 효과
+                강조 텍스트 효과
               </div>
             </div>
           </div>
