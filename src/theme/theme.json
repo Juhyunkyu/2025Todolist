@@ -1,0 +1,213 @@
+{
+  "themeInfo": {
+    "name": "Linear App Theme",
+    "description": "Linear의 미니멀하고 전문적인 디자인 시스템을 기반으로 한 테마",
+    "version": "1.0.0",
+    "author": "Based on Linear.app design system"
+  },
+  "colors": {
+    "primary": {
+      "brand": "#5E6AD2",
+      "brandHover": "#4C5BC7",
+      "brandActive": "#3A4AB3"
+    },
+    "background": {
+      "primary": "#000000",
+      "secondary": "#0D0E10",
+      "tertiary": "#1A1B1E",
+      "surface": "#242529",
+      "elevated": "#2E2F33"
+    },
+    "text": {
+      "primary": "#FFFFFF",
+      "secondary": "#B4B4B4",
+      "tertiary": "#8C8C8C",
+      "muted": "#666666",
+      "inverse": "#000000"
+    },
+    "border": {
+      "default": "#2E2F33",
+      "muted": "#1A1B1E",
+      "accent": "#5E6AD2"
+    },
+    "status": {
+      "success": "#00C853",
+      "warning": "#FF9800",
+      "error": "#F44336",
+      "info": "#2196F3"
+    },
+    "accent": {
+      "purple": "#9C27B0",
+      "gradient": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+    }
+  },
+  "typography": {
+    "fontFamily": {
+      "primary": ["Inter", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "sans-serif"],
+      "mono": ["SF Mono", "Monaco", "Cascadia Code", "Roboto Mono", "Consolas", "monospace"]
+    },
+    "fontSize": {
+      "xs": "0.75rem",
+      "sm": "0.875rem",
+      "base": "1rem",
+      "lg": "1.125rem",
+      "xl": "1.25rem",
+      "2xl": "1.5rem",
+      "3xl": "1.875rem",
+      "4xl": "2.25rem",
+      "5xl": "3rem"
+    },
+    "fontWeight": {
+      "light": 300,
+      "normal": 400,
+      "medium": 500,
+      "semibold": 600,
+      "bold": 700
+    },
+    "lineHeight": {
+      "tight": 1.25,
+      "normal": 1.5,
+      "relaxed": 1.75
+    },
+    "letterSpacing": {
+      "tight": "-0.025em",
+      "normal": "0",
+      "wide": "0.025em"
+    }
+  },
+  "spacing": {
+    "0": "0",
+    "1": "0.25rem",
+    "2": "0.5rem",
+    "3": "0.75rem",
+    "4": "1rem",
+    "6": "1.5rem",
+    "8": "2rem",
+    "12": "3rem",
+    "16": "4rem",
+    "20": "5rem",
+    "24": "6rem"
+  },
+  "borderRadius": {
+    "none": "0",
+    "sm": "0.125rem",
+    "default": "0.25rem",
+    "md": "0.375rem",
+    "lg": "0.5rem",
+    "xl": "0.75rem",
+    "2xl": "1rem",
+    "full": "9999px"
+  },
+  "shadows": {
+    "none": "none",
+    "sm": "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
+    "default": "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)",
+    "md": "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+    "lg": "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+    "xl": "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+    "glow": "0 0 20px rgba(94, 106, 210, 0.3)"
+  },
+  "animation": {
+    "duration": {
+      "fast": "150ms",
+      "normal": "300ms",
+      "slow": "500ms"
+    },
+    "easing": {
+      "default": "cubic-bezier(0.4, 0, 0.2, 1)",
+      "in": "cubic-bezier(0.4, 0, 1, 1)",
+      "out": "cubic-bezier(0, 0, 0.2, 1)",
+      "inOut": "cubic-bezier(0.4, 0, 0.2, 1)"
+    }
+  },
+  "layout": {
+    "container": {
+      "maxWidth": "1200px",
+      "padding": "1rem"
+    },
+    "sidebar": {
+      "width": "240px",
+      "collapsedWidth": "60px"
+    },
+    "header": {
+      "height": "60px"
+    }
+  },
+  "components": {
+    "button": {
+      "primary": {
+        "backgroundColor": "#5E6AD2",
+        "color": "#FFFFFF",
+        "borderRadius": "0.375rem",
+        "padding": "0.5rem 1rem",
+        "fontSize": "0.875rem",
+        "fontWeight": 500,
+        "transition": "all 150ms ease"
+      },
+      "secondary": {
+        "backgroundColor": "transparent",
+        "color": "#B4B4B4",
+        "border": "1px solid #2E2F33",
+        "borderRadius": "0.375rem",
+        "padding": "0.5rem 1rem",
+        "fontSize": "0.875rem",
+        "fontWeight": 500,
+        "transition": "all 150ms ease"
+      }
+    },
+    "input": {
+      "backgroundColor": "#1A1B1E",
+      "border": "1px solid #2E2F33",
+      "borderRadius": "0.375rem",
+      "padding": "0.5rem 0.75rem",
+      "fontSize": "0.875rem",
+      "color": "#FFFFFF",
+      "placeholder": "#666666"
+    },
+    "card": {
+      "backgroundColor": "#1A1B1E",
+      "border": "1px solid #2E2F33",
+      "borderRadius": "0.5rem",
+      "padding": "1.5rem",
+      "boxShadow": "0 1px 3px 0 rgba(0, 0, 0, 0.1)"
+    },
+    "navigation": {
+      "backgroundColor": "#0D0E10",
+      "borderRight": "1px solid #2E2F33",
+      "itemHover": "#1A1B1E",
+      "itemActive": "#5E6AD2"
+    }
+  },
+  "designPrinciples": {
+    "philosophy": "미니멀하고 전문적이며 개발자 친화적인 디자인",
+    "keyFeatures": [
+      "다크 테마 중심 설계",
+      "높은 대비율로 가독성 향상",
+      "Inter 폰트 사용으로 현대적인 느낌",
+      "미묘한 그라데이션과 그림자 효과",
+      "빠른 상호작용을 위한 부드러운 애니메이션",
+      "일관된 간격과 정렬 시스템"
+    ],
+    "colorStrategy": "주로 흑백 기반에 브랜드 컬러(보라빛 파랑)를 포인트로 사용",
+    "accessibility": {
+      "contrastRatio": "WCAG AA 준수",
+      "focusIndicators": "명확한 포커스 표시",
+      "semanticColors": "상태별 의미있는 색상 구분"
+    }
+  },
+  "usage": {
+    "bestPractices": [
+      "충분한 여백 제공",
+      "일관된 컴포넌트 사용",
+      "계층 구조를 명확히 표현",
+      "로딩 상태와 피드백 제공",
+      "모바일 반응형 고려"
+    ],
+    "avoid": [
+      "과도한 색상 사용",
+      "불필요한 장식 요소",
+      "복잡한 레이아웃",
+      "느린 애니메이션"
+    ]
+  }
+}
