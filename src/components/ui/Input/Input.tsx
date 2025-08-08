@@ -1,10 +1,7 @@
-import React, { forwardRef, useState } from 'react';
-import { InputVariant } from '@/theme/types';
-import { theme } from '@/theme';
-import { cn } from '@/lib/utils';
+import React, { forwardRef, useState } from "react";
+import { useTheme } from "@/contexts/ThemeContext";
 
-export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  variant?: InputVariant;
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
   helperText?: string;
@@ -16,145 +13,126 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
 const Input = forwardRef<HTMLInputElement, InputProps>(
   (
     {
-      variant = 'default',
       label,
       error,
       helperText,
       leftIcon,
       rightIcon,
       fullWidth = false,
-      className,
       style,
       ...props
     },
     ref
   ) => {
+    const { currentTheme } = useTheme();
     const [isFocused, setIsFocused] = useState(false);
     const hasError = Boolean(error);
 
-    const getInputStyles = () => {
-      const baseStyles = {
-        width: fullWidth ? '100%' : 'auto',
-        backgroundColor: theme.colors.background.tertiary,
-        border: `1px solid ${hasError ? theme.colors.status.error : theme.colors.border.default}`,
-        borderRadius: theme.borderRadius.md,
-        padding: leftIcon || rightIcon 
-          ? `${theme.spacing['2']} ${theme.spacing['3']} ${theme.spacing['2']} ${leftIcon ? '2.5rem' : theme.spacing['3']}`
-          : `${theme.spacing['2']} ${theme.spacing['3']}`,
-        fontSize: theme.typography.fontSize.sm,
-        color: theme.colors.text.primary,
-        transition: `all ${theme.animation.duration.fast} ${theme.animation.easing.default}`,
-        outline: 'none',
-        '::placeholder': {
-          color: theme.colors.text.muted,
-        },
-      };
-
-      if (isFocused && !hasError) {
-        return {
-          ...baseStyles,
-          borderColor: theme.colors.primary.brand,
-          boxShadow: `0 0 0 3px rgba(94, 106, 210, 0.1)`,
-        };
-      }
-
-      return baseStyles;
+    const inputStyles = {
+      width: fullWidth ? "100%" : "auto",
+      backgroundColor: currentTheme.colors.background.tertiary,
+      borderWidth: "1px",
+      borderStyle: "solid",
+      borderColor: hasError
+        ? currentTheme.colors.status.error
+        : isFocused
+        ? currentTheme.colors.primary.brand
+        : currentTheme.colors.border.default,
+      borderRadius: currentTheme.borderRadius.md,
+      padding: leftIcon
+        ? `${currentTheme.spacing["2"]} ${currentTheme.spacing["3"]} ${currentTheme.spacing["2"]} 2.5rem`
+        : `${currentTheme.spacing["2"]} ${currentTheme.spacing["3"]}`,
+      paddingRight: rightIcon ? "2.5rem" : currentTheme.spacing["3"],
+      fontSize: currentTheme.typography.fontSize.sm,
+      color: currentTheme.colors.text.primary,
+      transition: `all ${currentTheme.animation.duration.fast} ${currentTheme.animation.easing.default}`,
+      outline: "none",
+      boxShadow:
+        isFocused && !hasError ? "0 0 0 3px rgba(94, 106, 210, 0.1)" : "none",
+      ...style,
     };
 
     const containerStyles = {
-      display: 'flex',
-      flexDirection: 'column' as const,
-      gap: theme.spacing['1'],
-      width: fullWidth ? '100%' : 'auto',
+      display: "flex" as const,
+      flexDirection: "column" as const,
+      gap: currentTheme.spacing["1"],
+      width: fullWidth ? "100%" : "auto",
     };
 
     const labelStyles = {
-      fontSize: theme.typography.fontSize.sm,
-      fontWeight: theme.typography.fontWeight.medium,
-      color: theme.colors.text.secondary,
+      fontSize: currentTheme.typography.fontSize.sm,
+      fontWeight: currentTheme.typography.fontWeight.medium,
+      color: currentTheme.colors.text.secondary,
     };
 
     const helperTextStyles = {
-      fontSize: theme.typography.fontSize.xs,
-      color: hasError ? theme.colors.status.error : theme.colors.text.muted,
-    };
-
-    const iconContainerStyles = {
-      position: 'absolute' as const,
-      top: '50%',
-      transform: 'translateY(-50%)',
-      color: theme.colors.text.muted,
-      pointerEvents: 'none' as const,
+      fontSize: currentTheme.typography.fontSize.xs,
+      color: hasError
+        ? currentTheme.colors.status.error
+        : currentTheme.colors.text.muted,
     };
 
     const leftIconStyles = {
-      ...iconContainerStyles,
-      left: theme.spacing['3'],
+      position: "absolute" as const,
+      left: currentTheme.spacing["3"],
+      top: "50%",
+      transform: "translateY(-50%)",
+      color: currentTheme.colors.text.muted,
+      pointerEvents: "none" as const,
     };
 
     const rightIconStyles = {
-      ...iconContainerStyles,
-      right: theme.spacing['3'],
+      position: "absolute" as const,
+      right: currentTheme.spacing["3"],
+      top: "50%",
+      transform: "translateY(-50%)",
+      color: currentTheme.colors.text.muted,
+      pointerEvents: "none" as const,
     };
 
     return (
-      <div style={containerStyles}>
-        {label && (
-          <label style={labelStyles}>
-            {label}
-          </label>
-        )}
-        
-        <div style={{ position: 'relative', width: fullWidth ? '100%' : 'auto' }}>
-          {leftIcon && (
-            <div style={leftIconStyles}>
-              {leftIcon}
-            </div>
-          )}
-          
-          <input
-            ref={ref}
-            className={cn('linear-input', className)}
-            style={{
-              ...getInputStyles(),
-              paddingRight: rightIcon ? '2.5rem' : theme.spacing['3'],
-              ...style,
-            }}
-            onFocus={(e) => {
-              setIsFocused(true);
-              props.onFocus?.(e);
-            }}
-            onBlur={(e) => {
-              setIsFocused(false);
-              props.onBlur?.(e);
-            }}
-            {...props}
-          />
-          
-          {rightIcon && (
-            <div style={rightIconStyles}>
-              {rightIcon}
-            </div>
+      <>
+        <div style={containerStyles}>
+          {label && <label style={labelStyles}>{label}</label>}
+
+          <div
+            style={{ position: "relative", width: fullWidth ? "100%" : "auto" }}
+          >
+            {leftIcon && <div style={leftIconStyles}>{leftIcon}</div>}
+
+            <input
+              ref={ref}
+              style={inputStyles}
+              onFocus={(e) => {
+                setIsFocused(true);
+                props.onFocus?.(e);
+              }}
+              onBlur={(e) => {
+                setIsFocused(false);
+                props.onBlur?.(e);
+              }}
+              {...props}
+            />
+
+            {rightIcon && <div style={rightIconStyles}>{rightIcon}</div>}
+          </div>
+
+          {(error || helperText) && (
+            <span style={helperTextStyles}>{error || helperText}</span>
           )}
         </div>
-        
-        {(error || helperText) && (
-          <span style={helperTextStyles}>
-            {error || helperText}
-          </span>
-        )}
-        
+
         <style jsx>{`
-          .linear-input::placeholder {
-            color: ${theme.colors.text.muted};
+          input::placeholder {
+            color: ${currentTheme.colors.text.muted};
           }
         `}</style>
-      </div>
+      </>
     );
   }
 );
 
-Input.displayName = 'Input';
+Input.displayName = "Input";
 
 export default Input;
 export type { InputProps };

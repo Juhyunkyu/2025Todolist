@@ -1,5 +1,5 @@
 import React from "react";
-import { cn } from "@/lib/utils";
+import { useTheme } from "@/contexts/ThemeContext";
 
 interface CheckboxProps
   extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "size"> {
@@ -12,16 +12,17 @@ interface CheckboxProps
 const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
   (
     {
-      className,
       label,
       description,
       size = "md",
       indeterminate = false,
       checked,
+      style,
       ...props
     },
     ref
   ) => {
+    const { currentTheme } = useTheme();
     const checkboxRef = React.useRef<HTMLInputElement>(null);
 
     React.useImperativeHandle(ref, () => checkboxRef.current!);
@@ -32,16 +33,78 @@ const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
       }
     }, [indeterminate]);
 
-    const sizes = {
-      sm: "w-4 h-4",
-      md: "w-5 h-5",
-      lg: "w-6 h-6",
+    const getSizeStyles = () => {
+      switch (size) {
+        case "sm":
+          return {
+            width: "1rem",
+            height: "1rem",
+            fontSize: currentTheme.typography.fontSize.sm,
+          };
+        case "md":
+          return {
+            width: "1.25rem",
+            height: "1.25rem",
+            fontSize: currentTheme.typography.fontSize.sm,
+          };
+        case "lg":
+          return {
+            width: "1.5rem",
+            height: "1.5rem",
+            fontSize: currentTheme.typography.fontSize.base,
+          };
+        default:
+          return {
+            width: "1.25rem",
+            height: "1.25rem",
+            fontSize: currentTheme.typography.fontSize.sm,
+          };
+      }
     };
 
-    const labelSizes = {
-      sm: "text-sm",
-      md: "text-sm",
-      lg: "text-base",
+    const checkboxStyles: React.CSSProperties = {
+      accentColor: currentTheme.colors.primary.brand,
+      backgroundColor: currentTheme.colors.background.tertiary,
+      borderWidth: "1px",
+      borderStyle: "solid",
+      borderColor: currentTheme.colors.border.default,
+      borderRadius: currentTheme.borderRadius.sm,
+      cursor: "pointer",
+      transition: `all ${currentTheme.animation.duration.fast} ${currentTheme.animation.easing.default}`,
+      ...getSizeStyles(),
+      ...style,
+    };
+
+    const containerStyles: React.CSSProperties = {
+      display: "flex",
+      alignItems: "flex-start",
+      gap: currentTheme.spacing["3"],
+    };
+
+    const checkboxContainerStyles: React.CSSProperties = {
+      display: "flex",
+      alignItems: "center",
+      height: "1.25rem",
+    };
+
+    const contentStyles: React.CSSProperties = {
+      flex: 1,
+      minWidth: 0,
+    };
+
+    const labelStyles: React.CSSProperties = {
+      fontWeight: currentTheme.typography.fontWeight.medium,
+      color: currentTheme.colors.text.primary,
+      cursor: "pointer",
+      fontSize: getSizeStyles().fontSize,
+      lineHeight: "1.4",
+    };
+
+    const descriptionStyles: React.CSSProperties = {
+      fontSize: currentTheme.typography.fontSize.sm,
+      color: currentTheme.colors.text.secondary,
+      marginTop: currentTheme.spacing["1"],
+      lineHeight: "1.5",
     };
 
     const checkboxElement = (
@@ -49,33 +112,18 @@ const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
         type="checkbox"
         ref={checkboxRef}
         checked={checked}
-        className={cn(
-          "rounded border-border bg-bg-tertiary text-brand focus:ring-brand focus:ring-2 focus:ring-opacity-50 transition-colors",
-          sizes[size],
-          className
-        )}
+        style={checkboxStyles}
         {...props}
       />
     );
 
     if (label || description) {
       return (
-        <div className="flex items-start space-x-3">
-          <div className="flex items-center h-5">{checkboxElement}</div>
-          <div className="flex-1 min-w-0">
-            {label && (
-              <label
-                className={cn(
-                  "font-medium text-text-primary cursor-pointer",
-                  labelSizes[size]
-                )}
-              >
-                {label}
-              </label>
-            )}
-            {description && (
-              <p className="text-sm text-text-secondary mt-1">{description}</p>
-            )}
+        <div style={containerStyles}>
+          <div style={checkboxContainerStyles}>{checkboxElement}</div>
+          <div style={contentStyles}>
+            {label && <label style={labelStyles}>{label}</label>}
+            {description && <p style={descriptionStyles}>{description}</p>}
           </div>
         </div>
       );
@@ -88,3 +136,4 @@ const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
 Checkbox.displayName = "Checkbox";
 
 export default Checkbox;
+export type { CheckboxProps };

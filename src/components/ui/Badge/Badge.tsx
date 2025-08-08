@@ -1,82 +1,81 @@
-import React from 'react';
-import { BadgeVariant } from '@/theme/types';
-import { theme } from '@/theme';
-import { cn } from '@/lib/utils';
+import React from "react";
+import { useTheme, BadgeVariant } from "@/contexts/ThemeContext";
 
-export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
+interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   variant?: BadgeVariant;
-  size?: 'sm' | 'md' | 'lg';
+  size?: "sm" | "md" | "lg";
   children: React.ReactNode;
 }
 
 const Badge: React.FC<BadgeProps> = ({
-  variant = 'default',
-  size = 'md',
+  variant = "default",
+  size = "md",
   children,
-  className,
   style,
   ...props
 }) => {
+  const { currentTheme } = useTheme();
   const getVariantStyles = () => {
     const baseStyles = {
-      display: 'inline-flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderRadius: '9999px',
-      fontWeight: theme.typography.fontWeight.medium,
-      border: '1px solid',
-      whiteSpace: 'nowrap' as const,
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: "9999px",
+      fontWeight: currentTheme.typography.fontWeight.medium,
+      borderWidth: "1px",
+      borderStyle: "solid",
+      whiteSpace: "nowrap" as const,
     };
 
     switch (variant) {
-      case 'default':
+      case "default":
         return {
           ...baseStyles,
-          backgroundColor: theme.colors.background.elevated,
-          color: theme.colors.text.secondary,
-          borderColor: theme.colors.border.default,
+          backgroundColor: currentTheme.colors.background.elevated,
+          color: currentTheme.colors.text.secondary,
+          borderColor: currentTheme.colors.border.default,
         };
-      
-      case 'success':
+
+      case "success":
         return {
           ...baseStyles,
-          backgroundColor: 'rgba(0, 200, 83, 0.1)',
-          color: theme.colors.status.success,
-          borderColor: 'rgba(0, 200, 83, 0.2)',
+          backgroundColor: "rgba(0, 200, 83, 0.1)",
+          color: currentTheme.colors.status.success,
+          borderColor: "rgba(0, 200, 83, 0.2)",
         };
-      
-      case 'warning':
+
+      case "warning":
         return {
           ...baseStyles,
-          backgroundColor: 'rgba(255, 152, 0, 0.1)',
-          color: theme.colors.status.warning,
-          borderColor: 'rgba(255, 152, 0, 0.2)',
+          backgroundColor: "rgba(255, 152, 0, 0.1)",
+          color: currentTheme.colors.status.warning,
+          borderColor: "rgba(255, 152, 0, 0.2)",
         };
-      
-      case 'error':
+
+      case "error":
         return {
           ...baseStyles,
-          backgroundColor: 'rgba(244, 67, 54, 0.1)',
-          color: theme.colors.status.error,
-          borderColor: 'rgba(244, 67, 54, 0.2)',
+          backgroundColor: "rgba(244, 67, 54, 0.1)",
+          color: currentTheme.colors.status.error,
+          borderColor: "rgba(244, 67, 54, 0.2)",
         };
-      
-      case 'info':
+
+      case "info":
         return {
           ...baseStyles,
-          backgroundColor: 'rgba(33, 150, 243, 0.1)',
-          color: theme.colors.status.info,
-          borderColor: 'rgba(33, 150, 243, 0.2)',
+          backgroundColor: "rgba(33, 150, 243, 0.1)",
+          color: currentTheme.colors.status.info,
+          borderColor: "rgba(33, 150, 243, 0.2)",
         };
-      
-      case 'purple':
+
+      case "purple":
         return {
           ...baseStyles,
-          backgroundColor: 'rgba(156, 39, 176, 0.1)',
-          color: theme.colors.accent.purple,
-          borderColor: 'rgba(156, 39, 176, 0.2)',
+          backgroundColor: "rgba(156, 39, 176, 0.1)",
+          color: currentTheme.colors.accent.purple,
+          borderColor: "rgba(156, 39, 176, 0.2)",
         };
-      
+
       default:
         return baseStyles;
     }
@@ -84,23 +83,23 @@ const Badge: React.FC<BadgeProps> = ({
 
   const getSizeStyles = () => {
     switch (size) {
-      case 'sm':
+      case "sm":
         return {
-          padding: `${theme.spacing['1']} ${theme.spacing['2']}`,
-          fontSize: theme.typography.fontSize.xs,
-          minHeight: '1.25rem',
+          padding: `${currentTheme.spacing["1"]} ${currentTheme.spacing["2"]}`,
+          fontSize: currentTheme.typography.fontSize.xs,
+          minHeight: "1.25rem",
         };
-      case 'md':
+      case "md":
         return {
-          padding: `${theme.spacing['1']} ${theme.spacing['2.5']}`,
-          fontSize: theme.typography.fontSize.sm,
-          minHeight: '1.5rem',
+          padding: `${currentTheme.spacing["1"]} ${currentTheme.spacing["2.5"]}`,
+          fontSize: currentTheme.typography.fontSize.sm,
+          minHeight: "1.5rem",
         };
-      case 'lg':
+      case "lg":
         return {
-          padding: `${theme.spacing['1.5']} ${theme.spacing['3']}`,
-          fontSize: theme.typography.fontSize.sm,
-          minHeight: '1.75rem',
+          padding: `${currentTheme.spacing["1.5"]} ${currentTheme.spacing["3"]}`,
+          fontSize: currentTheme.typography.fontSize.sm,
+          minHeight: "1.75rem",
         };
       default:
         return {};
@@ -114,11 +113,7 @@ const Badge: React.FC<BadgeProps> = ({
   };
 
   return (
-    <span
-      className={cn('linear-badge', className)}
-      style={badgeStyles}
-      {...props}
-    >
+    <span style={badgeStyles} {...props}>
       {children}
     </span>
   );
