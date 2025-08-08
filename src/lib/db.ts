@@ -552,17 +552,15 @@ async function updateParentStatus(parentId: string) {
     })
   );
 
-  // 모든 자식이 완료되었으면 부모도 완료
+  // 부모의 상태는 모든 자식이 완료되었는지에만 의존
   const allChildrenDone = childrenStatus.every(status => status);
-  const anyChildDone = childrenStatus.some(status => status);
-
-  if (allChildrenDone && !parent.isDone) {
-    await updateHierarchicalTodo(parentId, { isDone: true });
-  } else if (!anyChildDone && parent.isDone) {
-    await updateHierarchicalTodo(parentId, { isDone: false });
+  
+  // 부모의 현재 상태와 자식들의 완료 상태가 다르면 동기화
+  if (parent.isDone !== allChildrenDone) {
+    await updateHierarchicalTodo(parentId, { isDone: allChildrenDone });
   }
 
-  // 부모의 부모도 업데이트
+  // 부모의 부모도 재귀적으로 업데이트
   if (parent.parentId) {
     await updateParentStatus(parent.parentId);
   }
