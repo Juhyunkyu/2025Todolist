@@ -38,6 +38,19 @@ function HomeContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [showAddTodo, setShowAddTodo] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isLargeScreen, setIsLargeScreen] = useState(false);
+
+  // 화면 크기 감지
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsLargeScreen(window.innerWidth > 1200);
+    };
+
+    checkScreenSize();
+    window.addEventListener("resize", checkScreenSize);
+
+    return () => window.removeEventListener("resize", checkScreenSize);
+  }, []);
 
   // 할일 목록 로드
   const loadTodos = useCallback(async () => {
@@ -208,13 +221,15 @@ function HomeContent() {
   };
 
   const mainStyles: React.CSSProperties = {
-    maxWidth: "1200px",
+    maxWidth: isLargeScreen ? "1800px" : "1600px", // 큰 화면에서는 더 넓게
     margin: "0 auto",
-    padding: currentTheme.spacing["4"],
+    padding: `0 ${
+      isLargeScreen ? currentTheme.spacing["8"] : currentTheme.spacing["4"]
+    }`, // 화면 크기에 따라 패딩 조정
   };
 
   const contentStyles: React.CSSProperties = {
-    marginTop: currentTheme.spacing["4"],
+    marginTop: currentTheme.spacing["0"], // 여백을 spacing["1"]에서 spacing["0"]로 줄임
   };
 
   const addButtonStyles: React.CSSProperties = {
@@ -243,12 +258,19 @@ function HomeContent() {
         {activeTab === "todo" && (
           <div style={contentStyles}>
             {/* Todo 필터 */}
-            <TodoFilters
-              activeFilter={activeFilter}
-              onFilterChange={handleFilterChange}
-              onAddGroup={handleAddGroup}
-              counts={counts}
-            />
+            <div
+              style={{
+                marginTop: "15px", // 15px 마진으로 조정
+                marginBottom: currentTheme.spacing["0"],
+              }}
+            >
+              <TodoFilters
+                activeFilter={activeFilter}
+                onFilterChange={handleFilterChange}
+                onAddGroup={handleAddGroup}
+                counts={counts}
+              />
+            </div>
 
             {/* 할일 추가 UI */}
             {showAddTodo && (

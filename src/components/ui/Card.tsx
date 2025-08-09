@@ -25,9 +25,7 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(
     const getVariantStyles = () => {
       const baseStyles = {
         backgroundColor: currentTheme.colors.background.secondary,
-        borderWidth: "1px",
-        borderStyle: "solid",
-        borderColor: currentTheme.colors.border.default,
+        border: `1px solid ${currentTheme.colors.border.default}`,
         borderRadius: currentTheme.borderRadius.lg,
         transition: `all ${currentTheme.animation.duration.fast} ${currentTheme.animation.easing.default}`,
       };

@@ -136,21 +136,22 @@ const TodoFilters: React.FC<TodoFiltersProps> = ({
 
   const containerStyles: React.CSSProperties = {
     display: "flex",
-    gap: currentTheme.spacing["2"],
-    padding: `${currentTheme.spacing["1"]} ${currentTheme.spacing["2"]}`, // 왼쪽 여백을 spacing["4"]에서 spacing["2"]로 줄임
+    gap: currentTheme.spacing["1"], // 간격을 더 좁게
+    padding: `${currentTheme.spacing["0"]} 0`, // 위아래 패딩 최소화
     backgroundColor: currentTheme.colors.background.primary,
     overflowX: "auto",
     scrollbarWidth: "none", // Firefox
     msOverflowStyle: "none", // IE/Edge
     WebkitOverflowScrolling: "touch", // iOS smooth scrolling
     position: "relative", // 인디케이터 위치를 위해
+    marginTop: "0", // 위쪽 간격 제거
   };
 
   const filterButtonStyles = (isActive: boolean): React.CSSProperties => ({
     display: "flex",
     alignItems: "center",
-    gap: currentTheme.spacing["2"],
-    padding: `${currentTheme.spacing["1"]} ${currentTheme.spacing["3"]}`,
+    gap: currentTheme.spacing["1"], // 간격을 더 좁게
+    padding: `${currentTheme.spacing["0"]} ${currentTheme.spacing["2"]}`, // 패딩을 더 작게
     backgroundColor: isActive
       ? currentTheme.colors.primary.brand
       : "transparent",
@@ -159,15 +160,16 @@ const TodoFilters: React.FC<TodoFiltersProps> = ({
       : currentTheme.colors.text.primary,
     border: "none",
     borderRadius: currentTheme.borderRadius.md,
-    fontSize: currentTheme.typography.fontSize.sm,
+    fontSize: currentTheme.typography.fontSize.base, // sm에서 base로 크게
     fontWeight: isActive
-      ? currentTheme.typography.fontWeight.semibold
-      : currentTheme.typography.fontWeight.medium,
+      ? currentTheme.typography.fontWeight.medium // semibold에서 medium으로 얇게
+      : currentTheme.typography.fontWeight.normal, // medium에서 normal로 더 얇게
     cursor: "pointer",
     transition: `all ${currentTheme.animation.duration.fast} ${currentTheme.animation.easing.default}`,
     whiteSpace: "nowrap",
     position: "relative",
     flexShrink: 0, // 버튼이 축소되지 않도록 설정
+    height: "32px", // 고정 높이로 더 컴팩트하게
   });
 
   const badgeStyles = (isActive: boolean): React.CSSProperties => ({
@@ -177,19 +179,29 @@ const TodoFilters: React.FC<TodoFiltersProps> = ({
     color: isActive
       ? currentTheme.colors.primary.brand
       : currentTheme.colors.text.primary,
-    fontSize: currentTheme.typography.fontSize.xs,
+    fontSize: currentTheme.typography.fontSize.sm, // xs에서 sm으로 크게
     fontWeight: currentTheme.typography.fontWeight.semibold,
-    padding: `${currentTheme.spacing["1"]} ${currentTheme.spacing["2"]}`,
+    padding: `${currentTheme.spacing["0"]} ${currentTheme.spacing["1"]}`, // 패딩을 더 작게
     borderRadius: currentTheme.borderRadius.full,
-    minWidth: "20px",
+    minWidth: "16px", // 최소 너비를 조금 더 크게
+    height: "16px", // 고정 높이를 조금 더 크게
     textAlign: "center",
+    border: `1px solid ${
+      isActive
+        ? currentTheme.colors.primary.brand
+        : currentTheme.colors.border.default
+    }`, // 테두리 추가
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    lineHeight: "1", // 텍스트 세로 정렬을 위해
   });
 
   const addGroupButtonStyles: React.CSSProperties = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    padding: `${currentTheme.spacing["1"]} ${currentTheme.spacing["3"]}`,
+    padding: `${currentTheme.spacing["0"]} ${currentTheme.spacing["2"]}`, // 패딩을 더 작게
     backgroundColor: currentTheme.colors.background.secondary,
     color: currentTheme.colors.text.primary,
     border: `1px solid ${currentTheme.colors.border.default}`,
@@ -198,7 +210,8 @@ const TodoFilters: React.FC<TodoFiltersProps> = ({
     fontWeight: currentTheme.typography.fontWeight.medium,
     cursor: "pointer",
     transition: `all ${currentTheme.animation.duration.fast} ${currentTheme.animation.easing.default}`,
-    minWidth: "40px",
+    minWidth: "32px", // 최소 너비를 더 작게
+    height: "32px", // 고정 높이로 더 컴팩트하게
     flexShrink: 0, // + 버튼이 축소되지 않도록 설정
   };
 
@@ -270,10 +283,16 @@ const TodoFilters: React.FC<TodoFiltersProps> = ({
         style={containerStyles}
         className="todo-filters-scroll"
       >
-        {filters.map((filter) => (
+        {filters.map((filter, index) => (
           <button
             key={filter.key}
-            style={filterButtonStyles(activeFilter === filter.key)}
+            style={{
+              ...filterButtonStyles(activeFilter === filter.key),
+              paddingLeft:
+                index === 0
+                  ? currentTheme.spacing["4"]
+                  : currentTheme.spacing["2"], // 첫 번째 버튼만 왼쪽 padding 추가, 나머지는 더 작게
+            }}
             onClick={() => handleTabClick(filter.key)}
             onKeyDown={(e) => handleKeyDown(e, filter.key)}
             tabIndex={0}

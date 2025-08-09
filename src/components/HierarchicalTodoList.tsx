@@ -1,15 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
-import {
-  Button,
-  Input,
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-  Badge,
-} from "@/components/ui";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { Button, Input, Badge } from "@/components/ui";
 import { useTheme } from "@/contexts/ThemeContext";
 import HierarchicalTodoItem, { HierarchicalTodo } from "./HierarchicalTodoItem";
 import {
@@ -79,6 +71,41 @@ const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
+  // 날짜별로 그룹화된 할일 목록
+  const groupedTodos = useMemo(() => {
+    const groups: { [key: string]: HierarchicalTodo[] } = {};
+
+    todos.forEach((todo) => {
+      const date = todo.date || "no-date";
+      if (!groups[date]) {
+        groups[date] = [];
+      }
+      groups[date].push(todo);
+    });
+
+    // 날짜별로 정렬 (최신 날짜가 위로)
+    return Object.entries(groups)
+      .sort(([a], [b]) => {
+        if (a === "no-date") return 1;
+        if (b === "no-date") return -1;
+        return new Date(b).getTime() - new Date(a).getTime();
+      })
+      .map(([date, todos]) => ({
+        date,
+        todos: todos.sort((a, b) => a.order - b.order),
+      }));
+  }, [todos]);
+
+  // 날짜 포맷팅 함수
+  const formatDate = useCallback((dateString: string) => {
+    if (dateString === "no-date") return "";
+
+    const date = new Date(dateString);
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    return `${month}.${day.toString().padStart(2, "0")}`;
+  }, []);
 
   // 할일 목록 로드
   const loadTodos = useCallback(async () => {
@@ -156,7 +183,13 @@ const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
       setNewTodoTitle("");
       setIsAdding(false);
       setMessage("새 할일이 추가되었습니다.");
-      await loadTodos();
+
+      // 외부에서 전달받은 onUpdate 콜백이 있으면 호출, 없으면 loadTodos 호출
+      if (onUpdate) {
+        onUpdate();
+      } else {
+        await loadTodos();
+      }
     } catch (error) {
       console.error("Failed to add todo:", error);
       setMessage("할일 추가에 실패했습니다.");
@@ -252,10 +285,19 @@ const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
         await reorderHierarchicalTodos(undefined, newOrder); // 최상위 레벨
         setMessage("📦 순서가 변경되었습니다!");
         setTimeout(() => setMessage(""), 2000);
+
+        // 외부에서 전달받은 onUpdate 콜백이 있으면 호출
+        if (onUpdate) {
+          onUpdate();
+        }
       } catch (error) {
         console.error("Failed to reorder todos:", error);
         // 실패시 원래 순서로 되돌리기
-        await loadTodos();
+        if (onUpdate) {
+          onUpdate();
+        } else {
+          await loadTodos();
+        }
         setMessage("❌ 순서 변경에 실패했습니다.");
         setTimeout(() => setMessage(""), 2000);
       }
@@ -264,9 +306,9 @@ const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
 
   // 스타일 정의
   const containerStyles: React.CSSProperties = {
-    width: "100%",
-    maxWidth: "800px",
-    margin: "0 auto",
+    backgroundColor: "transparent",
+    border: "none",
+    boxShadow: "none",
   };
 
   const headerStyles: React.CSSProperties = {
@@ -274,6 +316,8 @@ const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: currentTheme.spacing["4"],
+    padding: `${currentTheme.spacing["2"]} 0`,
+    borderBottom: `1px solid ${currentTheme.colors.border.default}`,
   };
 
   const statsStyles: React.CSSProperties = {
@@ -291,8 +335,8 @@ const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
   const addTodoStyles: React.CSSProperties = {
     display: "flex",
     gap: currentTheme.spacing["2"],
-    marginBottom: currentTheme.spacing["4"],
-    padding: currentTheme.spacing["3"],
+    marginBottom: currentTheme.spacing["2"],
+    padding: currentTheme.spacing["2"],
     backgroundColor: currentTheme.colors.background.tertiary,
     borderRadius: currentTheme.borderRadius.md,
     border: `1px solid ${currentTheme.colors.border.default}`,
@@ -300,14 +344,14 @@ const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
 
   const emptyStateStyles: React.CSSProperties = {
     textAlign: "center",
-    padding: currentTheme.spacing["8"],
+    padding: currentTheme.spacing["4"],
     color: currentTheme.colors.text.secondary,
     fontSize: currentTheme.typography.fontSize.lg,
   };
 
   const messageStyles: React.CSSProperties = {
     padding: currentTheme.spacing["2"],
-    marginBottom: currentTheme.spacing["4"],
+    marginBottom: currentTheme.spacing["2"],
     backgroundColor: currentTheme.colors.background.tertiary,
     border: `1px solid ${currentTheme.colors.border.default}`,
     borderRadius: currentTheme.borderRadius.md,
@@ -315,167 +359,206 @@ const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
     fontSize: currentTheme.typography.fontSize.sm,
   };
 
-  return (
-    <Card
-      style={{
-        ...containerStyles,
-        border: "none",
-        backgroundColor: "transparent",
-      }}
-    >
-      <CardHeader>
-        <div style={headerStyles}>
-          <div>
-            <CardTitle>{title}</CardTitle>
-            {showStats && progress.total > 0 && (
-              <div style={statsStyles}>
-                <Badge variant="info">
-                  전체: {progress.completed}/{progress.total}
-                </Badge>
-                <Badge
-                  variant={
-                    progress.percentage === 100
-                      ? "success"
-                      : progress.percentage > 50
-                      ? "info"
-                      : "default"
-                  }
-                >
-                  {progress.percentage}% 완료
-                </Badge>
-              </div>
-            )}
-          </div>
+  const dateGroupStyles: React.CSSProperties = {
+    marginBottom: currentTheme.spacing["4"],
+    display: "flex",
+  };
 
-          <div style={buttonGroupStyles}>
-            {showCopyButton && todos.length > 0 && (
-              <Button variant="secondary" size="sm" onClick={handleCopyTodos}>
-                📋 복사
-              </Button>
-            )}
+  const dateHeaderStyles: React.CSSProperties = {
+    fontSize: currentTheme.typography.fontSize.sm,
+    fontWeight: currentTheme.typography.fontWeight.medium,
+    color: currentTheme.colors.text.secondary,
+    minWidth: "60px",
+    paddingTop: currentTheme.spacing["2"],
+    paddingRight: currentTheme.spacing["2"],
+    textAlign: "left",
+    height: "40px", // 고정 높이로 정렬 맞추기
+    display: "flex",
+    alignItems: "center",
+  };
+
+  const dateDividerStyles: React.CSSProperties = {
+    width: "1px",
+    backgroundColor: currentTheme.colors.border.default,
+    margin: `${currentTheme.spacing["1"]} 0`,
+  };
+
+  const contentSectionStyles: React.CSSProperties = {
+    flex: 1,
+    borderLeft: `1px solid ${currentTheme.colors.border.default}`,
+    paddingLeft: currentTheme.spacing["4"],
+  };
+
+  const dateGroupDividerStyles: React.CSSProperties = {
+    height: "1px",
+    backgroundColor: currentTheme.colors.border.default,
+    margin: `${currentTheme.spacing["2"]} 0`,
+  };
+
+  return (
+    <div style={containerStyles}>
+      {/* 헤더 */}
+      <div style={headerStyles}>
+        <div>
+          <h2
+            style={{
+              margin: 0,
+              padding: 0,
+              fontSize: currentTheme.typography.fontSize.lg,
+            }}
+          >
+            {title}
+          </h2>
+          {showStats && progress.total > 0 && (
+            <div style={statsStyles}>
+              <Badge variant="info">
+                전체: {progress.completed}/{progress.total}
+              </Badge>
+              <Badge
+                variant={
+                  progress.percentage === 100
+                    ? "success"
+                    : progress.percentage > 50
+                    ? "info"
+                    : "default"
+                }
+              >
+                {progress.percentage}% 완료
+              </Badge>
+            </div>
+          )}
+        </div>
+
+        {/* 액션 버튼들 */}
+        <div style={buttonGroupStyles}>
+          {showAddButton && (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setIsAdding(true)}
+            >
+              할일 추가
+            </Button>
+          )}
+          {showCopyButton && todos.length > 0 && (
+            <Button variant="secondary" size="sm" onClick={handleCopyTodos}>
+              복사
+            </Button>
+          )}
+          {todos.some((todo) => todo.children.length > 0) && (
             <Button
               variant="ghost"
               size="sm"
               onClick={handleExpandAll}
               disabled={isExpandingAll}
             >
-              {isExpandingAll
-                ? "⏳ 처리중..."
-                : isAllExpanded
-                ? "📁 전체 접기"
-                : "📂 전체 펼치기"}
+              {isAllExpanded ? "모두 접기" : "모두 펼치기"}
             </Button>
-            {showAddButton && (
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => setIsAdding(true)}
-                disabled={isAdding}
-              >
-                ➕ 추가
-              </Button>
-            )}
-          </div>
+          )}
         </div>
-      </CardHeader>
+      </div>
 
-      <CardContent>
-        {/* 메시지 표시 */}
-        {message && (
-          <div style={messageStyles}>
-            {message}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setMessage("")}
-              style={{
-                float: "right",
-                fontSize: "12px",
-                padding: "2px 6px",
-                minHeight: "auto",
-              }}
-            >
-              ✕
-            </Button>
-          </div>
-        )}
+      {/* 메시지 표시 */}
+      {message && <div style={messageStyles}>{message}</div>}
 
-        {/* 새 할일 추가 UI */}
-        {isAdding && (
-          <div style={addTodoStyles}>
-            <Input
-              placeholder="새 할일 제목을 입력하세요..."
-              value={newTodoTitle}
-              onChange={(e) => setNewTodoTitle(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleAddTodo();
-                if (e.key === "Escape") {
-                  setNewTodoTitle("");
-                  setIsAdding(false);
-                }
-              }}
-              style={{ flex: 1 }}
-              autoFocus
-            />
-            <Button variant="primary" size="sm" onClick={handleAddTodo}>
-              추가
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => {
+      {/* 할일 추가 UI */}
+      {isAdding && (
+        <div style={addTodoStyles}>
+          <Input
+            placeholder="할일 제목을 입력하세요..."
+            value={newTodoTitle}
+            onChange={(e) => setNewTodoTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleAddTodo();
+              if (e.key === "Escape") {
                 setNewTodoTitle("");
                 setIsAdding(false);
-              }}
-            >
-              취소
-            </Button>
-          </div>
-        )}
-
-        {/* 로딩 상태 */}
-        {isLoading && (
-          <div style={emptyStateStyles}>⏳ 할일 목록을 불러오는 중...</div>
-        )}
-
-        {/* 빈 상태 */}
-        {!isLoading && todos.length === 0 && (
-          <div style={emptyStateStyles}>
-            📝 아직 할일이 없습니다.
-            <br />
-            <br />
-            <Button variant="primary" onClick={() => setIsAdding(true)}>
-              첫 번째 할일 추가하기
-            </Button>
-          </div>
-        )}
-
-        {/* 할일 목록 */}
-        {!isLoading && todos.length > 0 && (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
+              }
+            }}
+            style={{ flex: 1 }}
+            autoFocus
+          />
+          <Button variant="primary" size="sm" onClick={handleAddTodo}>
+            추가
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              setNewTodoTitle("");
+              setIsAdding(false);
+            }}
           >
-            <SortableContext
-              items={todos.map((todo) => todo.id)}
-              strategy={verticalListSortingStrategy}
-            >
-              <div>
-                {todos.map((todo) => (
-                  <HierarchicalTodoItem
-                    key={`${todo.id}-${todo.isExpanded}-${todo.updatedAt}`}
-                    todo={todo}
-                    level={0}
-                    onUpdate={loadTodos}
-                  />
-                ))}
+            취소
+          </Button>
+        </div>
+      )}
+
+      {/* 빈 상태 */}
+      {!isLoading && todos.length === 0 && (
+        <div style={emptyStateStyles}>
+          📝 아직 할일이 없습니다.
+          <br />
+          <br />
+          <Button variant="primary" onClick={() => setIsAdding(true)}>
+            첫 번째 할일 추가하기
+          </Button>
+        </div>
+      )}
+
+      {/* 할일 목록 - 날짜별 그룹화 */}
+      {!isLoading && todos.length > 0 && (
+        <div>
+          {groupedTodos.map((group, groupIndex) => (
+            <div key={group.date}>
+              <div style={dateGroupStyles}>
+                {/* 날짜 헤더 */}
+                <div style={dateHeaderStyles}>
+                  {group.date !== "no-date" ? formatDate(group.date) : ""}
+                </div>
+
+                {/* 내용 섹션 */}
+                <div style={contentSectionStyles}>
+                  {/* 해당 날짜의 할일들 */}
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                  >
+                    <SortableContext
+                      items={group.todos.map((todo) => todo.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      <div>
+                        {group.todos.map((todo) => (
+                          <HierarchicalTodoItem
+                            key={`${todo.id}-${todo.isExpanded}-${todo.updatedAt}`}
+                            todo={todo}
+                            level={0}
+                            onUpdate={() => {
+                              if (onUpdate) {
+                                onUpdate();
+                              } else {
+                                loadTodos();
+                              }
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </SortableContext>
+                  </DndContext>
+                </div>
               </div>
-            </SortableContext>
-          </DndContext>
-        )}
-      </CardContent>
-    </Card>
+
+              {/* 날짜 그룹 구분선 (마지막 그룹이 아닌 경우에만) */}
+              {groupIndex < groupedTodos.length - 1 && (
+                <div style={dateGroupDividerStyles} />
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 };
 

@@ -16,13 +16,15 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
 
   const containerStyles: React.CSSProperties = {
     display: "flex",
-    backgroundColor: currentTheme.colors.background.primary,
     borderBottom: `1px solid ${currentTheme.colors.border.default}`,
+    backgroundColor: currentTheme.colors.background.primary,
+    padding: `0 0 0 ${currentTheme.spacing["4"]}`, // 왼쪽 여백만 유지
+    marginTop: "0", // 위쪽 간격 제거
   };
 
   const tabStyles = (isActive: boolean): React.CSSProperties => ({
     flex: 1,
-    padding: `${currentTheme.spacing["2"]} ${currentTheme.spacing["4"]}`,
+    padding: `${currentTheme.spacing["0"]} ${currentTheme.spacing["4"]}`, // 위아래 패딩 최소화
     backgroundColor: "transparent",
     color: isActive
       ? currentTheme.colors.primary.brand
@@ -36,10 +38,13 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
     border: "none",
     borderBottom: isActive
       ? `2px solid ${currentTheme.colors.primary.brand}`
-      : "2px solid transparent",
+      : `1px solid ${currentTheme.colors.border.default}`, // 비활성 탭의 밑줄을 더 얇게
     outline: "none",
     position: "relative",
     boxSizing: "border-box",
+    height: "40px", // 고정 높이로 더 컴팩트하게
+    display: "flex",
+    alignItems: "center",
   });
 
   return (

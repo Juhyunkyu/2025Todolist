@@ -74,6 +74,7 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = ({
   });
   const [isLoading, setIsLoading] = useState(false);
   const [copyStatus, setCopyStatus] = useState<string>("");
+  const [showActions, setShowActions] = useState(false);
 
   // 드래그앤드롭 센서 설정 (하위 항목용)
   const sensors = useSensors(
@@ -263,7 +264,6 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = ({
   );
 
   // 스타일 계산 (메모이제이션)
-  const indentSize = useMemo(() => level * 24, [level]);
   const hasChildren = useMemo(
     () => todo.children.length > 0,
     [todo.children.length]
@@ -284,53 +284,20 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = ({
     [transform, transition, isDragging]
   );
 
-  // 레벨별 색상 구분 (메모이제이션)
-  const itemColors = useMemo(() => {
-    if (isDragging) {
-      return {
-        backgroundColor: currentTheme.colors.primary.brandHover,
-        borderColor: currentTheme.colors.primary.brand,
-      };
-    }
-
-    if (level === 0) {
-      // 최상위 항목: 더 진한 배경색과 강조 테두리
-      return {
-        backgroundColor: currentTheme.colors.background.primary,
-        borderColor: currentTheme.colors.primary.brand,
-      };
-    } else {
-      // 하위 항목: 연한 배경색과 기본 테두리
-      return {
-        backgroundColor: currentTheme.colors.background.secondary,
-        borderColor: currentTheme.colors.border.default,
-      };
-    }
-  }, [isDragging, level, currentTheme.colors]);
-
   const itemStyles: React.CSSProperties = useMemo(
     () => ({
-      ...dragStyle, // dragStyle을 먼저 적용
-      marginLeft: `${indentSize}px`,
-      marginBottom: currentTheme.spacing["2"],
-      padding: currentTheme.spacing["3"],
-      backgroundColor: itemColors.backgroundColor,
-      border: `1px solid ${itemColors.borderColor}`,
-      borderRadius: currentTheme.borderRadius.md,
-      borderLeft:
-        level === 0
-          ? `4px solid ${currentTheme.colors.primary.brand}` // 최상위 항목에 강조 왼쪽 테두리
-          : `4px solid ${currentTheme.colors.background.tertiary}`, // 하위 항목에 연한 왼쪽 테두리
-      transition: isDragging
-        ? "none"
-        : `all ${currentTheme.animation.duration.fast} ${currentTheme.animation.easing.default}`, // 우리의 transition이 마지막에 적용되도록
-      cursor: "grab", // 모든 레벨에서 드래그 가능
-      boxShadow:
-        level === 0
-          ? `0 2px 4px ${currentTheme.colors.primary.brand}20` // 최상위 항목에 은은한 그림자
-          : "none",
+      ...dragStyle,
+      display: "flex",
+      alignItems: "center",
+      padding: `${currentTheme.spacing["2"]} 0`,
+      marginLeft: `${level * 30}px`, // 하위 목록 들여쓰기 (30px씩 증가, 기존 20px에서 30px로 증가)
+      borderBottom: `1px solid ${currentTheme.colors.border.default}`,
+      backgroundColor: "transparent",
+      transition: `all ${currentTheme.animation.duration.fast} ${currentTheme.animation.easing.default}`,
+      position: "relative",
+      minHeight: "40px",
     }),
-    [dragStyle, indentSize, currentTheme, itemColors, level, isDragging]
+    [dragStyle, currentTheme, level]
   );
 
   const headerStyles: React.CSSProperties = useMemo(
@@ -338,33 +305,25 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = ({
       display: "flex",
       alignItems: "center",
       gap: currentTheme.spacing["2"],
-      marginBottom:
-        hasChildren && todo.isExpanded ? currentTheme.spacing["2"] : "0",
+      flex: 1,
+      paddingLeft: level > 0 ? currentTheme.spacing["2"] : 0, // 하위 목록일 때 추가 패딩
     }),
-    [currentTheme.spacing, hasChildren, todo.isExpanded]
+    [currentTheme.spacing, level]
   );
 
   const titleStyles: React.CSSProperties = useMemo(
     () => ({
       flex: 1,
-      fontSize:
-        level === 0
-          ? currentTheme.typography.fontSize.lg // 최상위: 큰 폰트
-          : currentTheme.typography.fontSize.base, // 하위: 기본 폰트
-      fontWeight:
-        level === 0
-          ? currentTheme.typography.fontWeight.bold // 최상위: 볼드
-          : currentTheme.typography.fontWeight.medium, // 하위: 미디움
+      fontSize: currentTheme.typography.fontSize.base,
+      fontWeight: currentTheme.typography.fontWeight.normal,
       color: todo.isDone
         ? currentTheme.colors.text.secondary
-        : level === 0
-        ? currentTheme.colors.text.primary // 최상위: 진한 텍스트
-        : currentTheme.colors.text.secondary, // 하위: 연한 텍스트 (더 부드러운 느낌)
+        : currentTheme.colors.text.primary,
       textDecoration: todo.isDone ? "line-through" : "none",
       opacity: todo.isDone ? 0.7 : 1,
       cursor: "pointer",
     }),
-    [level, currentTheme.typography, currentTheme.colors.text, todo.isDone]
+    [currentTheme.typography, currentTheme.colors.text, todo.isDone]
   );
 
   const buttonGroupStyles: React.CSSProperties = useMemo(
@@ -372,30 +331,44 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = ({
       display: "flex",
       gap: currentTheme.spacing["1"],
       alignItems: "center",
+      opacity: showActions ? 1 : 0,
+      transition: `opacity ${currentTheme.animation.duration.fast} ${currentTheme.animation.easing.default}`,
+      position: "absolute",
+      right: 0,
+      top: "50%",
+      transform: "translateY(-50%)",
+      backgroundColor: currentTheme.colors.background.primary,
+      padding: currentTheme.spacing["1"],
+      borderRadius: currentTheme.borderRadius.sm,
     }),
-    [currentTheme.spacing]
+    [
+      currentTheme.spacing,
+      showActions,
+      currentTheme.colors.background.primary,
+      currentTheme.borderRadius.sm,
+    ]
   );
 
   const addChildStyles: React.CSSProperties = useMemo(
     () => ({
       display: "flex",
       gap: currentTheme.spacing["2"],
-      marginTop: currentTheme.spacing["2"],
+      marginTop: currentTheme.spacing["1"],
       paddingLeft: currentTheme.spacing["6"],
     }),
     [currentTheme.spacing]
   );
 
-  // 확장/축소 아이콘 (메모이제이션)
+  // 확장/축소 아이콘 (메모이제이션) - 더 깔끔한 아이콘
   const getExpansionIcon = useMemo(() => {
     if (!hasChildren) return null;
-    return todo.isExpanded ? "▼" : "▶";
+    return todo.isExpanded ? "−" : "+";
   }, [hasChildren, todo.isExpanded]);
 
-  // 체크박스 아이콘 (메모이제이션)
+  // 둥근 체크박스 아이콘 (메모이제이션)
   const getCheckboxIcon = useMemo(() => {
     if (isLoading) return "⏳";
-    return todo.isDone ? "☑️" : "⬜";
+    return todo.isDone ? "●" : "○";
   }, [isLoading, todo.isDone]);
 
   return (
@@ -405,43 +378,55 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = ({
         ref={setNodeRef}
         style={itemStyles}
         {...attributes}
-        {...listeners} // 모든 레벨에서 드래그 리스너 적용
+        {...listeners}
+        onMouseEnter={() => setShowActions(true)}
+        onMouseLeave={() => setShowActions(false)}
       >
         <div style={headerStyles}>
           {/* 확장/축소 버튼 */}
           {hasChildren && (
-            <Button
-              variant="ghost"
-              size="sm"
+            <button
               onClick={handleExpansionToggle}
               style={{
-                minWidth: "24px",
-                width: "24px",
-                height: "24px",
-                padding: "0",
-                fontSize: "12px",
+                background: "none",
+                border: "none",
+                fontSize: "18px",
+                color: currentTheme.colors.text.secondary,
+                cursor: "pointer",
+                width: "20px",
+                height: "20px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: 0,
               }}
             >
               {getExpansionIcon}
-            </Button>
+            </button>
           )}
 
-          {/* 체크박스 */}
-          <Button
-            variant="ghost"
-            size="sm"
+          {/* 둥근 체크박스 */}
+          <button
             onClick={handleToggle}
             disabled={isLoading}
             style={{
-              minWidth: "24px",
-              width: "24px",
-              height: "24px",
-              padding: "0",
+              background: "none",
+              border: "none",
               fontSize: "16px",
+              color: todo.isDone
+                ? currentTheme.colors.primary.brand
+                : currentTheme.colors.text.secondary,
+              cursor: "pointer",
+              width: "20px",
+              height: "20px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 0,
             }}
           >
             {getCheckboxIcon}
-          </Button>
+          </button>
 
           {/* 제목 또는 수정 입력 */}
           {isEditing ? (
@@ -461,143 +446,100 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = ({
             </span>
           )}
 
-          {/* 진행률 표시 */}
-          {showProgress && !isEditing && (
-            <Badge
-              variant={level === 0 ? "info" : "default"}
-              size={level === 0 ? "md" : "sm"}
-              style={
-                level === 0
-                  ? {
-                      backgroundColor: `${currentTheme.colors.primary.brand}20`,
-                      color: currentTheme.colors.primary.brand,
-                      borderColor: `${currentTheme.colors.primary.brand}40`,
-                      borderWidth: "1px",
-                      borderStyle: "solid",
-                      fontWeight: currentTheme.typography.fontWeight.semibold,
-                    }
-                  : undefined
-              }
-            >
-              {progress.completed}/{progress.total} ({progress.percentage}%)
-            </Badge>
-          )}
-
-          {/* 복사 상태 피드백 */}
-          {copyStatus && !isEditing && (
-            <Badge
-              variant={copyStatus.includes("❌") ? "error" : "success"}
-              size="sm"
-              style={{
-                fontSize: "10px",
-                animation: `fadeInOut 2s ease-in-out`,
-              }}
-            >
-              {copyStatus}
-            </Badge>
-          )}
-
-          {/* 버튼 그룹 */}
+          {/* 액션 버튼들 (기본적으로 숨김) */}
           <div style={buttonGroupStyles}>
-            {isEditing ? (
-              <>
-                <Button variant="primary" size="sm" onClick={handleSaveEdit}>
-                  저장
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleCancelEdit}
-                >
-                  취소
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsEditing(true)}
-                  style={{ fontSize: "12px" }}
-                  title="제목 수정"
-                >
-                  ✏️
-                </Button>
-
-                {/* 하위 항목 추가 버튼 - 모든 레벨에서 사용 가능 */}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsAddingChild(true)}
-                  style={{ fontSize: "12px" }}
-                  title="하위 항목 추가"
-                >
-                  ➕
-                </Button>
-
-                {/* 복사 버튼 (최상위에서만) */}
-                {level === 0 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleCopyAsMarkdown}
-                    style={{ fontSize: "12px" }}
-                    title="마크다운으로 복사"
-                  >
-                    📋
-                  </Button>
-                )}
-
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleDelete}
-                  style={{
-                    fontSize: "12px",
-                    color: currentTheme.colors.status.error,
-                  }}
-                  title="삭제"
-                >
-                  🗑️
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* 자식 항목 추가 UI */}
-        {isAddingChild && (
-          <div style={addChildStyles}>
-            <Input
-              placeholder="하위 항목 제목을 입력하세요..."
-              value={newChildTitle}
-              onChange={(e) => setNewChildTitle(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleAddChild();
-                if (e.key === "Escape") {
-                  setNewChildTitle("");
-                  setIsAddingChild(false);
-                }
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsEditing(true)}
+              style={{
+                minWidth: "24px",
+                width: "24px",
+                height: "24px",
+                padding: "0",
+                fontSize: "12px",
               }}
-              style={{ flex: 1 }}
-              autoFocus
-            />
-            <Button variant="primary" size="sm" onClick={handleAddChild}>
-              추가
+            >
+              ✏️
             </Button>
             <Button
-              variant="secondary"
+              variant="ghost"
               size="sm"
-              onClick={() => {
-                setNewChildTitle("");
-                setIsAddingChild(false);
+              onClick={() => setIsAddingChild(true)}
+              style={{
+                minWidth: "24px",
+                width: "24px",
+                height: "24px",
+                padding: "0",
+                fontSize: "12px",
               }}
             >
-              취소
+              ➕
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCopyAsMarkdown}
+              style={{
+                minWidth: "24px",
+                width: "24px",
+                height: "24px",
+                padding: "0",
+                fontSize: "12px",
+              }}
+            >
+              📋
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleDelete}
+              style={{
+                minWidth: "24px",
+                width: "24px",
+                height: "24px",
+                padding: "0",
+                fontSize: "12px",
+              }}
+            >
+              🗑️
             </Button>
           </div>
-        )}
+        </div>
       </div>
+
+      {/* 자식 항목 추가 UI */}
+      {isAddingChild && (
+        <div style={addChildStyles}>
+          <Input
+            placeholder="하위 항목 제목을 입력하세요..."
+            value={newChildTitle}
+            onChange={(e) => setNewChildTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleAddChild();
+              if (e.key === "Escape") {
+                setNewChildTitle("");
+                setIsAddingChild(false);
+              }
+            }}
+            style={{ flex: 1 }}
+            autoFocus
+          />
+          <Button variant="primary" size="sm" onClick={handleAddChild}>
+            추가
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              setNewChildTitle("");
+              setIsAddingChild(false);
+            }}
+          >
+            취소
+          </Button>
+        </div>
+      )}
 
       {/* 자식 항목들 (재귀 렌더링) */}
       {todo.isExpanded && children.length > 0 && (

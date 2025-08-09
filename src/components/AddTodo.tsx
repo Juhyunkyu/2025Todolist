@@ -59,7 +59,6 @@ const AddTodo: React.FC<AddTodoProps> = ({ onAdd, onCancel, initialDate }) => {
   const containerStyles: React.CSSProperties = {
     padding: currentTheme.spacing["4"],
     backgroundColor: currentTheme.colors.background.secondary,
-    border: `1px solid ${currentTheme.colors.border.default}`,
     borderRadius: currentTheme.borderRadius.md,
     marginBottom: currentTheme.spacing["4"],
   };
