@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Button,
   Input,
@@ -18,6 +18,7 @@ import {
   copyHierarchicalTodosAsMarkdown,
   getHierarchicalTodoProgress,
   reorderHierarchicalTodos,
+  expandAllHierarchicalTodos,
 } from "@/lib/db";
 
 import {
@@ -60,6 +61,8 @@ const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
     percentage: 0,
   });
   const [message, setMessage] = useState("");
+  const [isAllExpanded, setIsAllExpanded] = useState(false);
+  const [isExpandingAll, setIsExpandingAll] = useState(false);
 
   // 드래그앤드롭 센서 설정
   const sensors = useSensors(
@@ -74,16 +77,37 @@ const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
   );
 
   // 할일 목록 로드
-  const loadTodos = async () => {
+  const loadTodos = useCallback(async () => {
     try {
       setIsLoading(true);
+
       const rootTodos = await getHierarchicalTodosByParent(); // 최상위 항목들만
       setTodos(rootTodos);
 
       // 전체 진행률 계산
       if (showStats) {
-        const progressData = await getHierarchicalTodoProgress();
-        setProgress(progressData);
+        try {
+          const progressData = await getHierarchicalTodoProgress();
+          setProgress(progressData);
+        } catch (progressError) {
+          console.error("Failed to load progress:", progressError);
+          // 진행률 로드 실패해도 계속 진행
+        }
+      }
+
+      // 전체 펼쳐진 상태 확인 (로드된 데이터 기준)
+      try {
+        const todosWithChildren = rootTodos.filter(
+          (todo) => todo.children && todo.children.length > 0
+        );
+        const allExpanded =
+          todosWithChildren.length > 0
+            ? todosWithChildren.every((todo) => todo.isExpanded)
+            : false;
+        setIsAllExpanded(allExpanded);
+      } catch (expandError) {
+        console.error("Failed to check expand state:", expandError);
+        setIsAllExpanded(false); // 기본값으로 설정
       }
     } catch (error) {
       console.error("Failed to load hierarchical todos:", error);
@@ -91,12 +115,13 @@ const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [showStats]);
 
   // 컴포넌트 마운트 시 로드
   useEffect(() => {
     loadTodos();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // 의존성을 비워서 마운트 시에만 실행
 
   // 새 최상위 할일 추가
   const handleAddTodo = async () => {
@@ -136,10 +161,59 @@ const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
     }
   };
 
-  // 전체 펼치기/접기
+  // 전체 펼치기/접기 - 즉시 반응하는 버전
   const handleExpandAll = async () => {
-    // 이 기능은 복잡하므로 일단 메시지만 표시
-    setMessage("전체 펼치기/접기 기능은 곧 추가될 예정입니다.");
+    if (isExpandingAll) return;
+
+    const newExpandState = !isAllExpanded;
+
+    try {
+      setIsExpandingAll(true);
+
+      // 1. 즉시 로컬 상태 업데이트 (사용자가 바로 변화를 봄)
+      setIsAllExpanded(newExpandState);
+
+      // 2. 메모리의 todos 데이터를 즉시 업데이트 (UI 즉시 반응)
+      const updatedTodos = todos.map((todo) => ({
+        ...todo,
+        isExpanded: newExpandState,
+        updatedAt: new Date().toISOString(),
+      }));
+      setTodos(updatedTodos);
+
+      // 3. 메시지 즉시 표시
+      const action = newExpandState ? "펼쳐졌습니다" : "접혀졌습니다";
+      setMessage(`📂 모든 할일이 ${action}!`);
+      setTimeout(() => setMessage(""), 2000);
+
+      // 4. 백그라운드에서 DB 업데이트 (사용자는 기다리지 않음)
+      expandAllHierarchicalTodos(newExpandState)
+        .then(() => {
+          // 5. DB 업데이트 완료 후 최종 새로고침
+          return getHierarchicalTodosByParent();
+        })
+        .then((refreshedTodos) => {
+          setTodos(refreshedTodos);
+          // 최종 상태 재확인
+          const todosWithChildren = refreshedTodos.filter(
+            (todo) => todo.children && todo.children.length > 0
+          );
+          const actualExpandState =
+            todosWithChildren.length > 0
+              ? todosWithChildren.every((todo) => todo.isExpanded)
+              : false;
+          setIsAllExpanded(actualExpandState);
+        })
+        .catch((error) => {
+          console.error("백그라운드 DB 업데이트 실패:", error);
+          // DB 업데이트 실패 시 원래 상태로 되돌리기
+          setIsAllExpanded(!newExpandState);
+          setMessage("❌ 저장에 실패했습니다. 다시 시도해주세요.");
+          setTimeout(() => setMessage(""), 3000);
+        });
+    } finally {
+      setIsExpandingAll(false);
+    }
   };
 
   // 드래그 종료 핸들러
@@ -259,8 +333,17 @@ const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
                 📋 복사
               </Button>
             )}
-            <Button variant="ghost" size="sm" onClick={handleExpandAll}>
-              📂 전체 펼치기
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleExpandAll}
+              disabled={isExpandingAll}
+            >
+              {isExpandingAll
+                ? "⏳ 처리중..."
+                : isAllExpanded
+                ? "📁 전체 접기"
+                : "📂 전체 펼치기"}
             </Button>
             {showAddButton && (
               <Button
@@ -361,7 +444,7 @@ const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
               <div>
                 {todos.map((todo) => (
                   <HierarchicalTodoItem
-                    key={todo.id}
+                    key={`${todo.id}-${todo.isExpanded}-${todo.updatedAt}`}
                     todo={todo}
                     level={0}
                     onUpdate={loadTodos}

@@ -12,10 +12,26 @@ import {
   getHierarchicalTodosByParent,
   getHierarchicalTodoProgress,
   copySingleHierarchicalTodoAsMarkdown,
+  reorderHierarchicalTodos,
 } from "@/lib/db";
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 
 // 계층적 할일 아이템 타입 정의
 interface HierarchicalTodo {
@@ -59,7 +75,19 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [copyStatus, setCopyStatus] = useState<string>("");
 
-  // 드래그앤드롭 훅 (최상위 레벨에서만 사용)
+  // 드래그앤드롭 센서 설정 (하위 항목용)
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // 8px 이동 후 드래그 시작 (실수 방지)
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // 드래그앤드롭 훅 (모든 레벨에서 사용 가능)
   const {
     attributes,
     listeners,
@@ -69,7 +97,7 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = ({
     isDragging,
   } = useSortable({
     id: todo.id,
-    disabled: level > 0, // 하위 항목은 드래그 비활성화
+    disabled: false, // 모든 레벨에서 드래그 활성화
   });
 
   // 자식 항목들 로드
@@ -198,6 +226,42 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = ({
     }
   }, [todo.id]);
 
+  // 하위 항목 드래그 종료 핸들러 (메모이제이션)
+  const handleChildDragEnd = useCallback(
+    async (event: DragEndEvent) => {
+      const { active, over } = event;
+
+      if (!over || active.id === over.id) {
+        return; // 드롭 위치가 없거나 같은 위치면 아무것도 안함
+      }
+
+      const activeIndex = children.findIndex((child) => child.id === active.id);
+      const overIndex = children.findIndex((child) => child.id === over.id);
+
+      if (activeIndex !== -1 && overIndex !== -1) {
+        // 로컬 상태 즉시 업데이트 (UI 반응성)
+        const newChildren = arrayMove(children, activeIndex, overIndex);
+        setChildren(newChildren);
+
+        try {
+          // 데이터베이스에 새 순서 저장
+          const newOrder = newChildren.map((child) => child.id);
+          await reorderHierarchicalTodos(todo.id, newOrder); // 현재 항목이 부모
+          setCopyStatus("📦 순서 변경!");
+          setTimeout(() => setCopyStatus(""), 2000);
+          onUpdate(); // 상위 컴포넌트에 변경 알림
+        } catch (error) {
+          console.error("Failed to reorder child todos:", error);
+          // 실패시 원래 순서로 되돌리기
+          await loadChildren();
+          setCopyStatus("❌ 순서 변경 실패");
+          setTimeout(() => setCopyStatus(""), 2000);
+        }
+      }
+    },
+    [children, todo.id, onUpdate, loadChildren]
+  );
+
   // 스타일 계산 (메모이제이션)
   const indentSize = useMemo(() => level * 24, [level]);
   const hasChildren = useMemo(
@@ -260,7 +324,7 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = ({
       transition: isDragging
         ? "none"
         : `all ${currentTheme.animation.duration.fast} ${currentTheme.animation.easing.default}`, // 우리의 transition이 마지막에 적용되도록
-      cursor: level === 0 ? "grab" : "default",
+      cursor: "grab", // 모든 레벨에서 드래그 가능
       boxShadow:
         level === 0
           ? `0 2px 4px ${currentTheme.colors.primary.brand}20` // 최상위 항목에 은은한 그림자
@@ -341,7 +405,7 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = ({
         ref={setNodeRef}
         style={itemStyles}
         {...attributes}
-        {...(level === 0 ? listeners : {})} // 최상위에서만 드래그 리스너 적용
+        {...listeners} // 모든 레벨에서 드래그 리스너 적용
       >
         <div style={headerStyles}>
           {/* 확장/축소 버튼 */}
@@ -537,16 +601,27 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = ({
 
       {/* 자식 항목들 (재귀 렌더링) */}
       {todo.isExpanded && children.length > 0 && (
-        <div>
-          {children.map((child) => (
-            <HierarchicalTodoItem
-              key={child.id}
-              todo={child}
-              level={level + 1}
-              onUpdate={onUpdate}
-            />
-          ))}
-        </div>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleChildDragEnd}
+        >
+          <SortableContext
+            items={children.map((child) => child.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <div>
+              {children.map((child) => (
+                <HierarchicalTodoItem
+                  key={`${child.id}-${child.isExpanded}-${child.updatedAt}`}
+                  todo={child}
+                  level={level + 1}
+                  onUpdate={onUpdate}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       )}
     </div>
   );

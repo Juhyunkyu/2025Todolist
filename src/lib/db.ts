@@ -706,3 +706,64 @@ export async function moveHierarchicalTodo(todoId: string, direction: 'up' | 'do
   return true; // 성공적으로 이동
 }
 
+// 전체 펼치기/접기 함수 - 빠르고 깔끔한 버전
+export async function expandAllHierarchicalTodos(expand: boolean) {
+  // 간단하고 빠른 개별 업데이트 방식
+  const rootTodos = await getHierarchicalTodosByParent(); 
+  
+  // 재귀적으로 모든 할일 업데이트 (병렬 처리)
+  async function updateAllTodos(parentId?: string): Promise<void[]> {
+    const todos = await getHierarchicalTodosByParent(parentId);
+    
+    const updatePromises = todos.map(async (todo) => {
+      // 현재 할일 업데이트
+      const updatePromise = updateHierarchicalTodo(todo.id, { 
+        isExpanded: expand,
+        updatedAt: new Date().toISOString()
+      });
+      
+      // 자식이 있으면 자식들도 업데이트 (병렬)
+      const childrenPromise = todo.children.length > 0 
+        ? updateAllTodos(todo.id) 
+        : Promise.resolve([]);
+      
+      return Promise.all([updatePromise, childrenPromise]);
+    });
+    
+    return Promise.all(updatePromises);
+  }
+  
+  await updateAllTodos(); // 최상위부터 시작
+}
+
+// 현재 전체가 펼쳐진 상태인지 확인하는 함수
+export async function checkAllExpanded() {
+  try {
+    const db = await getDB();
+    const tx = db.transaction(['hierarchicalTodos'], 'readonly');
+    const store = tx.objectStore('hierarchicalTodos');
+    
+    const request = store.getAll();
+    const todos = await new Promise<HierarchicalTodo[]>((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    
+    // 트랜잭션 완료 대기
+    await tx.complete;
+    
+    // 자식이 있는 할일들만 확인 (자식이 없으면 펼치기/접기가 의미 없음)
+    const todosWithChildren = todos.filter(todo => todo.children && todo.children.length > 0);
+    
+    if (todosWithChildren.length === 0) {
+      return false; // 자식이 있는 할일이 없으면 false
+    }
+    
+    // 모든 자식이 있는 할일이 펼쳐져 있으면 true
+    return todosWithChildren.every(todo => todo.isExpanded);
+  } catch (error) {
+    console.error('checkAllExpanded error:', error);
+    return false; // 에러 시 기본값 반환
+  }
+}
+

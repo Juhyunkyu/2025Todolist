@@ -14,10 +14,6 @@ import {
 } from "@/components/ui";
 import { ThemeProvider, useTheme } from "@/contexts/ThemeContext";
 import {
-  addTodo,
-  getTodos,
-  deleteTodo,
-  toggleTodo,
   addNote,
   getNotes,
   deleteNote,
@@ -25,18 +21,6 @@ import {
   exportData,
 } from "@/lib/db";
 import HierarchicalTodoList from "@/components/HierarchicalTodoList";
-
-interface Todo {
-  id: string;
-  title: string;
-  isDone: boolean;
-  tags: string[];
-  date: string;
-  repeat: "none" | "daily" | "weekly" | "monthly";
-  alarmTime?: string;
-  createdAt: string;
-  updatedAt: string;
-}
 
 interface Note {
   id: string;
@@ -50,9 +34,8 @@ interface Note {
 // 내부 컴포넌트 - useTheme 사용
 function DBTestContent() {
   const { currentTheme, selectedTheme, setSelectedTheme } = useTheme();
-  const [todos, setTodos] = useState<Todo[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
-  const [newTodoTitle, setNewTodoTitle] = useState("");
+
   const [newNoteTitle, setNewNoteTitle] = useState("");
   const [newNoteContent, setNewNoteContent] = useState("");
   const [message, setMessage] = useState("");
@@ -67,59 +50,12 @@ function DBTestContent() {
 
   const loadData = async () => {
     try {
-      const [todosData, notesData] = await Promise.all([
-        getTodos(),
-        getNotes(),
-      ]);
-      setTodos(todosData);
+      const notesData = await getNotes();
       setNotes(notesData);
       setMessage("데이터 로드 완료!");
     } catch (error) {
       console.error("데이터 로드 실패:", error);
       setMessage("데이터 로드에 실패했습니다.");
-    }
-  };
-
-  const handleAddTodo = async () => {
-    if (!newTodoTitle.trim()) return;
-    try {
-      const newTodo = await addTodo({
-        title: newTodoTitle,
-        isDone: false,
-        tags: [],
-        date: new Date().toISOString().split("T")[0],
-        repeat: "none" as const,
-      });
-      setTodos((prev) => [...prev, newTodo]);
-      setNewTodoTitle("");
-      setMessage("할일이 추가되었습니다!");
-    } catch (error) {
-      console.error("할일 추가 실패:", error);
-      setMessage("할일 추가에 실패했습니다.");
-    }
-  };
-
-  const handleToggleTodo = async (id: string) => {
-    try {
-      const updatedTodo = await toggleTodo(id);
-      setTodos((prev) =>
-        prev.map((todo) => (todo.id === id ? updatedTodo : todo))
-      );
-      setMessage("할일 상태가 변경되었습니다!");
-    } catch (error) {
-      console.error("할일 상태 변경 실패:", error);
-      setMessage("할일 상태 변경에 실패했습니다.");
-    }
-  };
-
-  const handleDeleteTodo = async (id: string) => {
-    try {
-      await deleteTodo(id);
-      setTodos((prev) => prev.filter((todo) => todo.id !== id));
-      setMessage("할일이 삭제되었습니다!");
-    } catch (error) {
-      console.error("할일 삭제 실패:", error);
-      setMessage("할일 삭제에 실패했습니다.");
     }
   };
 
@@ -165,7 +101,6 @@ function DBTestContent() {
   const handleClearData = async () => {
     try {
       await clearAllData();
-      setTodos([]);
       setNotes([]);
       setMessage("모든 데이터가 삭제되었습니다!");
     } catch (error) {
@@ -265,101 +200,48 @@ function DBTestContent() {
         )}
       </div>
 
-      {/* 할일 섹션 */}
-      <Card style={{ marginBottom: currentTheme.spacing["6"] }}>
+      {/* 계층적 할일 관리 시스템 */}
+      <div style={{ marginBottom: currentTheme.spacing["8"] }}>
         <h2
           style={{
-            fontSize: currentTheme.typography.fontSize.xl,
-            fontWeight: currentTheme.typography.fontWeight.semibold,
-            marginBottom: currentTheme.spacing["4"],
+            fontSize: currentTheme.typography.fontSize["2xl"],
+            fontWeight: currentTheme.typography.fontWeight.bold,
             color: currentTheme.colors.text.primary,
+            marginBottom: currentTheme.spacing["6"],
+            textAlign: "center",
           }}
         >
-          📝 할일 관리 ({todos.length}개)
+          🌳 계층적 할일 관리 시스템
         </h2>
 
-        <div
+        <p
           style={{
-            display: "flex",
-            gap: currentTheme.spacing["3"],
-            marginBottom: currentTheme.spacing["4"],
+            color: currentTheme.colors.text.secondary,
+            fontSize: currentTheme.typography.fontSize.base,
+            lineHeight: "1.6",
+            textAlign: "center",
+            maxWidth: "600px",
+            margin: `0 auto ${currentTheme.spacing["6"]} auto`,
           }}
         >
-          <Input
-            placeholder="새 할일 입력..."
-            value={newTodoTitle}
-            onChange={(e) => setNewTodoTitle(e.target.value)}
-            style={{ flex: 1 }}
-            onKeyPress={(e) => e.key === "Enter" && handleAddTodo()}
-          />
-          <Button onClick={handleAddTodo}>추가</Button>
-        </div>
+          📋 <strong>장보기</strong> → 배추, 고추장, 만두, 삼겹살
+          <br />
+          🎯 부모 항목 클릭 → 하위 메뉴 펼치기/접기
+          <br />
+          ✅ 하위 항목 모두 완료 → 부모 항목 자동 완료
+          <br />
+          📝 더블클릭으로 제목 수정, 복사 기능 지원
+          <br />
+          🖱️ 드래그&드롭으로 순서 변경 (상위/하위 항목 모두 가능)
+        </p>
 
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: currentTheme.spacing["2"],
-          }}
-        >
-          {todos.map((todo) => (
-            <div
-              key={todo.id}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: currentTheme.spacing["3"],
-                padding: currentTheme.spacing["3"],
-                backgroundColor: currentTheme.colors.background.tertiary,
-                borderRadius: currentTheme.borderRadius.md,
-                border: `1px solid ${currentTheme.colors.border.default}`,
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={todo.isDone}
-                onChange={() => handleToggleTodo(todo.id)}
-                style={{
-                  width: "1.25rem",
-                  height: "1.25rem",
-                  accentColor: currentTheme.colors.primary.brand,
-                }}
-              />
-              <span
-                style={{
-                  flex: 1,
-                  textDecoration: todo.isDone ? "line-through" : "none",
-                  opacity: todo.isDone ? 0.6 : 1,
-                  color: currentTheme.colors.text.primary,
-                }}
-              >
-                {todo.title}
-              </span>
-              <Badge variant={todo.repeat !== "none" ? "success" : "default"}>
-                {todo.repeat}
-              </Badge>
-              <Button
-                onClick={() => handleDeleteTodo(todo.id)}
-                variant="ghost"
-                size="sm"
-              >
-                삭제
-              </Button>
-            </div>
-          ))}
-          {todos.length === 0 && (
-            <div
-              style={{
-                textAlign: "center",
-                padding: currentTheme.spacing["8"],
-                color: currentTheme.colors.text.muted,
-              }}
-            >
-              아직 할일이 없습니다. 위에서 새 할일을 추가해보세요!
-            </div>
-          )}
-        </div>
-      </Card>
+        <HierarchicalTodoList
+          title="📝 스마트 할일 관리"
+          showAddButton={true}
+          showCopyButton={true}
+          showStats={true}
+        />
+      </div>
 
       {/* 노트 섹션 */}
       <Card>
@@ -635,7 +517,7 @@ function DBTestContent() {
               marginTop: currentTheme.spacing["2"],
             }}
           >
-            <li>할일 {todos.length}개</li>
+            <li>계층적 할일 (DB 전체)</li>
             <li>노트 {notes.length}개</li>
             <li>사용자 설정</li>
           </ul>
@@ -660,47 +542,6 @@ function DBTestContent() {
           </Button>
         </DialogFooter>
       </Dialog>
-
-      {/* 계층적 할일 테스트 섹션 */}
-      <div style={{ marginTop: currentTheme.spacing["8"] }}>
-        <h2
-          style={{
-            fontSize: currentTheme.typography.fontSize["2xl"],
-            fontWeight: currentTheme.typography.fontWeight.bold,
-            color: currentTheme.colors.text.primary,
-            marginBottom: currentTheme.spacing["6"],
-            textAlign: "center",
-          }}
-        >
-          🌳 계층적 할일 관리 시스템
-        </h2>
-
-        <p
-          style={{
-            color: currentTheme.colors.text.secondary,
-            fontSize: currentTheme.typography.fontSize.base,
-            lineHeight: "1.6",
-            textAlign: "center",
-            maxWidth: "600px",
-            margin: `0 auto ${currentTheme.spacing["6"]} auto`,
-          }}
-        >
-          📋 <strong>장보기</strong> → 배추, 고추장, 만두, 삼겹살
-          <br />
-          🎯 부모 항목 클릭 → 하위 메뉴 펼치기/접기
-          <br />
-          ✅ 하위 항목 모두 완료 → 부모 항목 자동 완료
-          <br />
-          📝 더블클릭으로 제목 수정, 복사 기능 지원
-        </p>
-
-        <HierarchicalTodoList
-          title="📝 스마트 할일 관리"
-          showAddButton={true}
-          showCopyButton={true}
-          showStats={true}
-        />
-      </div>
     </div>
   );
 }
