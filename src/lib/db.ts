@@ -88,7 +88,7 @@ interface TodoPlannerDB extends DBSchema {
   settings: {
     key: string;
     value: {
-      theme: 'dark' | 'light' | 'orange' | 'pastel';
+      theme: 'dark' | 'light' | 'orange' | 'pastel' | 'purple' | 'gray' | 'gray-dark';
       notifications: boolean;
       autoBackup: boolean;
       lastBackup?: string;

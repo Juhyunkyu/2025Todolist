@@ -292,12 +292,20 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = ({
       padding: `${currentTheme.spacing["2"]} 0`,
       marginLeft: `${level * 30}px`, // 하위 목록 들여쓰기 (30px씩 증가, 기존 20px에서 30px로 증가)
       borderBottom: `1px solid ${currentTheme.colors.border.default}`,
-      backgroundColor: "transparent",
+      backgroundColor: currentTheme.colors.background.primary,
       transition: `all ${currentTheme.animation.duration.fast} ${currentTheme.animation.easing.default}`,
       position: "relative",
       minHeight: "40px",
     }),
-    [dragStyle, currentTheme, level]
+    [
+      dragStyle,
+      currentTheme.spacing,
+      level,
+      currentTheme.colors.border.default,
+      currentTheme.colors.background.primary,
+      currentTheme.animation.duration.fast,
+      currentTheme.animation.easing.default,
+    ]
   );
 
   const headerStyles: React.CSSProperties = useMemo(
@@ -323,7 +331,13 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = ({
       opacity: todo.isDone ? 0.7 : 1,
       cursor: "pointer",
     }),
-    [currentTheme.typography, currentTheme.colors.text, todo.isDone]
+    [
+      currentTheme.typography.fontSize.base,
+      currentTheme.typography.fontWeight.normal,
+      currentTheme.colors.text.secondary,
+      currentTheme.colors.text.primary,
+      todo.isDone,
+    ]
   );
 
   const buttonGroupStyles: React.CSSProperties = useMemo(
@@ -346,6 +360,8 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = ({
       showActions,
       currentTheme.colors.background.primary,
       currentTheme.borderRadius.sm,
+      currentTheme.animation.duration.fast,
+      currentTheme.animation.easing.default,
     ]
   );
 

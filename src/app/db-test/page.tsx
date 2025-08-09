@@ -89,8 +89,18 @@ function DBTestContent() {
   };
 
   const handleCycleTheme = async () => {
-    const themes = ["dark", "light", "orange", "pastel"] as const;
-    const currentIndex = themes.indexOf(selectedTheme);
+    const themes = [
+      "dark",
+      "light",
+      "orange",
+      "pastel",
+      "purple",
+      "gray",
+      "gray-dark",
+    ] as const;
+    const currentIndex = themes.indexOf(
+      selectedTheme as (typeof themes)[number]
+    );
     const nextIndex = (currentIndex + 1) % themes.length;
     const newTheme = themes[nextIndex];
 
@@ -473,6 +483,9 @@ function DBTestContent() {
                   { value: "light", label: "라이트 테마" },
                   { value: "orange", label: "오렌지 테마" },
                   { value: "pastel", label: "파스텔 테마" },
+                  { value: "purple", label: "보라 테마" },
+                  { value: "gray", label: "그레이 테마" },
+                  { value: "gray-dark", label: "다크 그레이 테마" },
                 ]}
                 size="md"
               />

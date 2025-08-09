@@ -304,96 +304,165 @@ const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
     }
   };
 
-  // 스타일 정의
-  const containerStyles: React.CSSProperties = {
-    backgroundColor: "transparent",
-    border: "none",
-    boxShadow: "none",
-  };
+  // 스타일 정의 - 테마 변경 시 자동 업데이트
+  const containerStyles: React.CSSProperties = useMemo(
+    () => ({
+      backgroundColor: currentTheme.colors.background.primary,
+      border: "none",
+      boxShadow: "none",
+      color: currentTheme.colors.text.primary,
+    }),
+    [currentTheme.colors.background.primary, currentTheme.colors.text.primary]
+  );
 
-  const headerStyles: React.CSSProperties = {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: currentTheme.spacing["4"],
-    padding: `${currentTheme.spacing["2"]} 0`,
-    borderBottom: `1px solid ${currentTheme.colors.border.default}`,
-  };
+  const headerStyles: React.CSSProperties = useMemo(
+    () => ({
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: currentTheme.spacing["4"],
+      padding: `${currentTheme.spacing["2"]} 0`,
+      borderBottom: `1px solid ${currentTheme.colors.border.default}`,
+      backgroundColor: currentTheme.colors.background.primary,
+    }),
+    [
+      currentTheme.spacing,
+      currentTheme.colors.border.default,
+      currentTheme.colors.background.primary,
+    ]
+  );
 
-  const statsStyles: React.CSSProperties = {
-    display: "flex",
-    gap: currentTheme.spacing["2"],
-    alignItems: "center",
-  };
+  const statsStyles: React.CSSProperties = useMemo(
+    () => ({
+      display: "flex",
+      gap: currentTheme.spacing["2"],
+      alignItems: "center",
+    }),
+    [currentTheme.spacing]
+  );
 
-  const buttonGroupStyles: React.CSSProperties = {
-    display: "flex",
-    gap: currentTheme.spacing["2"],
-    alignItems: "center",
-  };
+  const buttonGroupStyles: React.CSSProperties = useMemo(
+    () => ({
+      display: "flex",
+      gap: currentTheme.spacing["2"],
+      alignItems: "center",
+    }),
+    [currentTheme.spacing]
+  );
 
-  const addTodoStyles: React.CSSProperties = {
-    display: "flex",
-    gap: currentTheme.spacing["2"],
-    marginBottom: currentTheme.spacing["2"],
-    padding: currentTheme.spacing["2"],
-    backgroundColor: currentTheme.colors.background.tertiary,
-    borderRadius: currentTheme.borderRadius.md,
-    border: `1px solid ${currentTheme.colors.border.default}`,
-  };
+  const addTodoStyles: React.CSSProperties = useMemo(
+    () => ({
+      display: "flex",
+      gap: currentTheme.spacing["2"],
+      marginBottom: currentTheme.spacing["2"],
+      padding: currentTheme.spacing["2"],
+      backgroundColor: currentTheme.colors.background.tertiary,
+      borderRadius: currentTheme.borderRadius.md,
+      border: `1px solid ${currentTheme.colors.border.default}`,
+    }),
+    [
+      currentTheme.spacing,
+      currentTheme.colors.background.tertiary,
+      currentTheme.borderRadius.md,
+      currentTheme.colors.border.default,
+    ]
+  );
 
-  const emptyStateStyles: React.CSSProperties = {
-    textAlign: "center",
-    padding: currentTheme.spacing["4"],
-    color: currentTheme.colors.text.secondary,
-    fontSize: currentTheme.typography.fontSize.lg,
-  };
+  const emptyStateStyles: React.CSSProperties = useMemo(
+    () => ({
+      textAlign: "center",
+      padding: currentTheme.spacing["4"],
+      color: currentTheme.colors.text.secondary,
+      fontSize: currentTheme.typography.fontSize.lg,
+    }),
+    [
+      currentTheme.spacing,
+      currentTheme.colors.text.secondary,
+      currentTheme.typography.fontSize.lg,
+    ]
+  );
 
-  const messageStyles: React.CSSProperties = {
-    padding: currentTheme.spacing["2"],
-    marginBottom: currentTheme.spacing["2"],
-    backgroundColor: currentTheme.colors.background.tertiary,
-    border: `1px solid ${currentTheme.colors.border.default}`,
-    borderRadius: currentTheme.borderRadius.md,
-    color: currentTheme.colors.text.primary,
-    fontSize: currentTheme.typography.fontSize.sm,
-  };
+  const messageStyles: React.CSSProperties = useMemo(
+    () => ({
+      padding: currentTheme.spacing["2"],
+      marginBottom: currentTheme.spacing["2"],
+      backgroundColor: currentTheme.colors.background.tertiary,
+      border: `1px solid ${currentTheme.colors.border.default}`,
+      borderRadius: currentTheme.borderRadius.md,
+      color: currentTheme.colors.text.primary,
+      fontSize: currentTheme.typography.fontSize.sm,
+    }),
+    [
+      currentTheme.spacing,
+      currentTheme.colors.background.tertiary,
+      currentTheme.colors.border.default,
+      currentTheme.borderRadius.md,
+      currentTheme.colors.text.primary,
+      currentTheme.typography.fontSize.sm,
+    ]
+  );
 
-  const dateGroupStyles: React.CSSProperties = {
-    marginBottom: currentTheme.spacing["4"],
-    display: "flex",
-  };
+  const dateGroupStyles: React.CSSProperties = useMemo(
+    () => ({
+      marginBottom: currentTheme.spacing["4"],
+      display: "flex",
+      backgroundColor: currentTheme.colors.background.primary,
+    }),
+    [currentTheme.spacing, currentTheme.colors.background.primary]
+  );
 
-  const dateHeaderStyles: React.CSSProperties = {
-    fontSize: currentTheme.typography.fontSize.sm,
-    fontWeight: currentTheme.typography.fontWeight.medium,
-    color: currentTheme.colors.text.secondary,
-    minWidth: "60px",
-    paddingTop: currentTheme.spacing["2"],
-    paddingRight: currentTheme.spacing["2"],
-    textAlign: "left",
-    height: "40px", // 고정 높이로 정렬 맞추기
-    display: "flex",
-    alignItems: "center",
-  };
+  const dateHeaderStyles: React.CSSProperties = useMemo(
+    () => ({
+      fontSize: currentTheme.typography.fontSize.sm,
+      fontWeight: currentTheme.typography.fontWeight.medium,
+      color: currentTheme.colors.text.secondary,
+      minWidth: "60px",
+      paddingTop: currentTheme.spacing["2"],
+      paddingRight: currentTheme.spacing["2"],
+      textAlign: "left",
+      height: "40px", // 고정 높이로 정렬 맞추기
+      display: "flex",
+      alignItems: "center",
+    }),
+    [
+      currentTheme.typography.fontSize.sm,
+      currentTheme.typography.fontWeight.medium,
+      currentTheme.colors.text.secondary,
+      currentTheme.spacing,
+    ]
+  );
 
-  const dateDividerStyles: React.CSSProperties = {
-    width: "1px",
-    backgroundColor: currentTheme.colors.border.default,
-    margin: `${currentTheme.spacing["1"]} 0`,
-  };
+  const dateDividerStyles: React.CSSProperties = useMemo(
+    () => ({
+      width: "1px",
+      backgroundColor: currentTheme.colors.border.default,
+      margin: `${currentTheme.spacing["1"]} 0`,
+    }),
+    [currentTheme.colors.border.default, currentTheme.spacing]
+  );
 
-  const contentSectionStyles: React.CSSProperties = {
-    flex: 1,
-    borderLeft: `1px solid ${currentTheme.colors.border.default}`,
-    paddingLeft: currentTheme.spacing["4"],
-  };
+  const contentSectionStyles: React.CSSProperties = useMemo(
+    () => ({
+      flex: 1,
+      borderLeft: `1px solid ${currentTheme.colors.border.default}`,
+      paddingLeft: currentTheme.spacing["4"],
+      backgroundColor: currentTheme.colors.background.primary,
+    }),
+    [
+      currentTheme.colors.border.default,
+      currentTheme.spacing,
+      currentTheme.colors.background.primary,
+    ]
+  );
 
-  const dateGroupDividerStyles: React.CSSProperties = {
-    height: "1px",
-    backgroundColor: currentTheme.colors.border.default,
-    margin: `${currentTheme.spacing["2"]} 0`,
-  };
+  const dateGroupDividerStyles: React.CSSProperties = useMemo(
+    () => ({
+      height: "1px",
+      backgroundColor: currentTheme.colors.border.default,
+      margin: `${currentTheme.spacing["2"]} 0`,
+    }),
+    [currentTheme.colors.border.default, currentTheme.spacing]
+  );
 
   return (
     <div style={containerStyles}>
