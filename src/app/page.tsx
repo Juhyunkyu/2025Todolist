@@ -1,103 +1,344 @@
-import Image from "next/image";
+"use client";
 
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { ThemeProvider, useTheme } from "@/contexts/ThemeContext";
+import Header from "@/components/Header";
+import TabNavigation from "@/components/TabNavigation";
+import TodoFilters from "@/components/TodoFilters";
+import AddTodo from "@/components/AddTodo";
+import HierarchicalTodoList from "@/components/HierarchicalTodoList";
+import {
+  getHierarchicalTodosByParent,
+  addHierarchicalTodo,
+  getHierarchicalTodoProgress,
+} from "@/lib/db";
+
+interface HierarchicalTodo {
+  id: string;
+  title: string;
+  isDone: boolean;
+  parentId?: string;
+  children: string[];
+  isExpanded: boolean;
+  order: number;
+  tags: string[];
+  date: string;
+  repeat: "none" | "daily" | "weekly" | "monthly";
+  alarmTime?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// 내부 컴포넌트 - useTheme 사용
+function HomeContent() {
+  const { currentTheme } = useTheme();
+  const [activeTab, setActiveTab] = useState<"todo" | "note">("todo");
+  const [activeFilter, setActiveFilter] = useState("all");
+  const [todos, setTodos] = useState<HierarchicalTodo[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showAddTodo, setShowAddTodo] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // 할일 목록 로드
+  const loadTodos = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const rootTodos = await getHierarchicalTodosByParent();
+      setTodos(rootTodos);
+    } catch (error) {
+      console.error("Failed to load todos:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // 컴포넌트 마운트 시 로드
+  useEffect(() => {
+    loadTodos();
+  }, [loadTodos]);
+
+  // 필터링된 할일 목록 계산
+  const filteredAndSearchedTodos = useMemo(() => {
+    let filtered = todos;
+
+    // 검색 필터링
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (todo) =>
+          todo.title.toLowerCase().includes(query) ||
+          todo.tags.some((tag) => tag.toLowerCase().includes(query)) ||
+          todo.date.includes(query)
+      );
+    }
+
+    // 필터별 필터링
+    const today = new Date().toISOString().split("T")[0];
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().split("T")[0];
+    const weekFromNow = new Date();
+    weekFromNow.setDate(weekFromNow.getDate() + 7);
+    const weekFromNowStr = weekFromNow.toISOString().split("T")[0];
+
+    switch (activeFilter) {
+      case "today":
+        filtered = filtered.filter((todo) => todo.date === today);
+        break;
+      case "tomorrow":
+        filtered = filtered.filter((todo) => todo.date === tomorrowStr);
+        break;
+      case "week":
+        filtered = filtered.filter((todo) => {
+          const todoDate = new Date(todo.date);
+          const now = new Date();
+          const weekFromNow = new Date();
+          weekFromNow.setDate(now.getDate() + 7);
+          return todoDate >= now && todoDate <= weekFromNow;
+        });
+        break;
+      case "defaultGroup":
+        filtered = filtered.filter(
+          (todo) => !todo.tags.length || todo.tags.includes("기본그룹")
+        );
+        break;
+      default:
+        // "all" - 모든 할일 표시
+        break;
+    }
+
+    return filtered;
+  }, [todos, activeFilter, searchQuery]);
+
+  // 할일 추가
+  const handleAddTodo = useCallback(
+    async (todoData: {
+      title: string;
+      date: string;
+      alarmTime?: string;
+      isPinned?: boolean;
+    }) => {
+      try {
+        const nextOrder = todos.length;
+        await addHierarchicalTodo({
+          title: todoData.title,
+          isDone: false,
+          isExpanded: false,
+          order: nextOrder,
+          tags: todoData.isPinned ? ["상단고정"] : [],
+          date: todoData.date,
+          repeat: "none",
+          alarmTime: todoData.alarmTime,
+        });
+
+        setShowAddTodo(false);
+        await loadTodos();
+      } catch (error) {
+        console.error("Failed to add todo:", error);
+      }
+    },
+    [todos.length, loadTodos]
+  );
+
+  // 검색 처리
+  const handleSearch = useCallback((query: string) => {
+    setSearchQuery(query);
+  }, []);
+
+  // 필터 변경
+  const handleFilterChange = useCallback((filter: string) => {
+    setActiveFilter(filter);
+  }, []);
+
+  // 그룹 추가
+  const handleAddGroup = useCallback(() => {
+    // TODO: 그룹 추가 기능 구현
+    console.log("Add group clicked");
+    // 임시로 알림 표시
+    alert("그룹 추가 기능은 곧 구현될 예정입니다.");
+  }, []);
+
+  // 설정 클릭 (나중에 구현)
+  const handleSettingsClick = useCallback(() => {
+    // TODO: 설정 페이지로 이동
+    console.log("Settings clicked");
+  }, []);
+
+  // 카운트 계산
+  const counts = useMemo(() => {
+    const today = new Date().toISOString().split("T")[0];
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().split("T")[0];
+    const weekFromNow = new Date();
+    weekFromNow.setDate(weekFromNow.getDate() + 7);
+    const weekFromNowStr = weekFromNow.toISOString().split("T")[0];
+
+    return {
+      all: todos.length,
+      today: todos.filter((todo) => todo.date === today).length,
+      tomorrow: todos.filter((todo) => todo.date === tomorrowStr).length,
+      week: todos.filter((todo) => {
+        const todoDate = new Date(todo.date);
+        const now = new Date();
+        const weekFromNow = new Date();
+        weekFromNow.setDate(now.getDate() + 7);
+        return todoDate >= now && todoDate <= weekFromNow;
+      }).length,
+      defaultGroup: todos.filter(
+        (todo) => !todo.tags.length || todo.tags.includes("기본그룹")
+      ).length,
+    };
+  }, [todos]);
+
+  // 할일 추가 버튼 클릭 (오늘 탭에서 자동으로 오늘 날짜 지정)
+  const handleAddTodoClick = useCallback(() => {
+    setShowAddTodo(true);
+  }, []);
+
+  // 오늘 날짜 가져오기
+  const getTodayDate = useCallback(() => {
+    return new Date().toISOString().split("T")[0];
+  }, []);
+
+  const containerStyles: React.CSSProperties = {
+    minHeight: "100vh",
+    backgroundColor: currentTheme.colors.background.primary,
+    color: currentTheme.colors.text.primary,
+  };
+
+  const mainStyles: React.CSSProperties = {
+    maxWidth: "1200px",
+    margin: "0 auto",
+    padding: currentTheme.spacing["4"],
+  };
+
+  const contentStyles: React.CSSProperties = {
+    marginTop: currentTheme.spacing["4"],
+  };
+
+  const addButtonStyles: React.CSSProperties = {
+    position: "fixed",
+    bottom: currentTheme.spacing["6"],
+    right: currentTheme.spacing["6"],
+    zIndex: 1000,
+  };
+
+  const emptyStateStyles: React.CSSProperties = {
+    textAlign: "center",
+    padding: currentTheme.spacing["8"],
+    color: currentTheme.colors.text.secondary,
+    fontSize: currentTheme.typography.fontSize.lg,
+  };
+
+  return (
+    <div style={containerStyles}>
+      {/* 헤더 */}
+      <Header onSearch={handleSearch} onSettingsClick={handleSettingsClick} />
+
+      {/* 탭 네비게이션 */}
+      <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
+
+      <main style={mainStyles}>
+        {activeTab === "todo" && (
+          <div style={contentStyles}>
+            {/* Todo 필터 */}
+            <TodoFilters
+              activeFilter={activeFilter}
+              onFilterChange={handleFilterChange}
+              onAddGroup={handleAddGroup}
+              counts={counts}
+            />
+
+            {/* 할일 추가 UI */}
+            {showAddTodo && (
+              <AddTodo
+                onAdd={handleAddTodo}
+                onCancel={() => setShowAddTodo(false)}
+                initialDate={
+                  activeFilter === "today" ? getTodayDate() : undefined
+                }
+              />
+            )}
+
+            {/* 할일 목록 또는 빈 상태 */}
+            {!isLoading && (
+              <>
+                {filteredAndSearchedTodos.length > 0 && (
+                  <HierarchicalTodoList
+                    title=""
+                    showAddButton={false}
+                    showCopyButton={true}
+                    showStats={true}
+                    todos={filteredAndSearchedTodos}
+                    onUpdate={loadTodos}
+                  />
+                )}
+              </>
+            )}
+
+            {/* 로딩 상태 */}
+            {isLoading && (
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: currentTheme.spacing["8"],
+                  color: currentTheme.colors.text.secondary,
+                }}
+              >
+                ⏳ 할일 목록을 불러오는 중...
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "note" && (
+          <div style={contentStyles}>
+            <div
+              style={{
+                textAlign: "center",
+                padding: currentTheme.spacing["8"],
+                color: currentTheme.colors.text.secondary,
+              }}
+            >
+              📝 Note 기능은 곧 구현될 예정입니다.
+            </div>
+          </div>
+        )}
+      </main>
+
+      {/* 할일 추가 버튼 */}
+      {activeTab === "todo" && !showAddTodo && (
+        <div style={addButtonStyles}>
+          <button
+            onClick={handleAddTodoClick}
+            style={{
+              width: "56px",
+              height: "56px",
+              borderRadius: "50%",
+              backgroundColor: currentTheme.colors.primary.brand,
+              color: currentTheme.colors.text.inverse,
+              border: "none",
+              fontSize: "24px",
+              cursor: "pointer",
+              boxShadow: `0 4px 12px ${currentTheme.colors.primary.brand}40`,
+              transition: `all ${currentTheme.animation.duration.fast} ${currentTheme.animation.easing.default}`,
+            }}
+            title="할일 추가"
+          >
+            +
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// 메인 컴포넌트 - ThemeProvider로 감싸기
 export default function Home() {
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+    <ThemeProvider>
+      <HomeContent />
+    </ThemeProvider>
   );
 }

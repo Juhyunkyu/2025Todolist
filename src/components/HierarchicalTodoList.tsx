@@ -42,6 +42,8 @@ interface HierarchicalTodoListProps {
   showAddButton?: boolean;
   showCopyButton?: boolean;
   showStats?: boolean;
+  todos?: HierarchicalTodo[]; // 외부에서 전달받은 데이터
+  onUpdate?: () => void; // 데이터 업데이트 콜백
 }
 
 const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
@@ -49,6 +51,8 @@ const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
   showAddButton = true,
   showCopyButton = true,
   showStats = true,
+  todos: externalTodos,
+  onUpdate,
 }) => {
   const { currentTheme } = useTheme();
   const [todos, setTodos] = useState<HierarchicalTodo[]>([]);
@@ -81,8 +85,13 @@ const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
     try {
       setIsLoading(true);
 
-      const rootTodos = await getHierarchicalTodosByParent(); // 최상위 항목들만
-      setTodos(rootTodos);
+      // 외부에서 전달받은 데이터가 있으면 사용, 없으면 직접 로드
+      if (externalTodos) {
+        setTodos(externalTodos);
+      } else {
+        const rootTodos = await getHierarchicalTodosByParent(); // 최상위 항목들만
+        setTodos(rootTodos);
+      }
 
       // 전체 진행률 계산
       if (showStats) {
@@ -97,7 +106,8 @@ const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
 
       // 전체 펼쳐진 상태 확인 (로드된 데이터 기준)
       try {
-        const todosWithChildren = rootTodos.filter(
+        const currentTodos = externalTodos || todos;
+        const todosWithChildren = currentTodos.filter(
           (todo) => todo.children && todo.children.length > 0
         );
         const allExpanded =
@@ -115,13 +125,17 @@ const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [showStats]);
+  }, [externalTodos, showStats]);
 
-  // 컴포넌트 마운트 시 로드
+  // 외부 데이터가 변경될 때마다 업데이트
   useEffect(() => {
-    loadTodos();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // 의존성을 비워서 마운트 시에만 실행
+    if (externalTodos) {
+      setTodos(externalTodos);
+      setIsLoading(false);
+    } else {
+      loadTodos();
+    }
+  }, [externalTodos, loadTodos]);
 
   // 새 최상위 할일 추가
   const handleAddTodo = async () => {
@@ -302,7 +316,13 @@ const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
   };
 
   return (
-    <Card style={containerStyles}>
+    <Card
+      style={{
+        ...containerStyles,
+        border: "none",
+        backgroundColor: "transparent",
+      }}
+    >
       <CardHeader>
         <div style={headerStyles}>
           <div>

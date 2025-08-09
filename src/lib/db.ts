@@ -337,7 +337,7 @@ export async function getSettings(): Promise<TodoPlannerDB['settings']['value']>
       notifications: true,
       autoBackup: false,
     };
-    await db.add('settings', { id: 'default', ...defaultSettings });
+    await db.add('settings', defaultSettings);
     return defaultSettings;
   }
   
@@ -349,11 +349,14 @@ export async function updateSettings(updates: Partial<TodoPlannerDB['settings'][
   const settings = await db.get('settings', 'default');
   
   const updatedSettings: TodoPlannerDB['settings']['value'] = {
+    theme: 'dark',
+    notifications: true,
+    autoBackup: false,
     ...settings,
     ...updates,
   };
 
-  await db.put('settings', { id: 'default', ...updatedSettings });
+  await db.put('settings', updatedSettings);
   return updatedSettings;
 }
 
@@ -407,7 +410,7 @@ export async function importData(data: Awaited<ReturnType<typeof exportData>>) {
     await db.add('templates', template);
   }
   
-  await db.put('settings', { id: 'default', ...data.settings });
+  await db.put('settings', data.settings);
 }
 
 // ========================
@@ -708,29 +711,22 @@ export async function moveHierarchicalTodo(todoId: string, direction: 'up' | 'do
 
 // 전체 펼치기/접기 함수 - 빠르고 깔끔한 버전
 export async function expandAllHierarchicalTodos(expand: boolean) {
-  // 간단하고 빠른 개별 업데이트 방식
-  const rootTodos = await getHierarchicalTodosByParent(); 
-  
-  // 재귀적으로 모든 할일 업데이트 (병렬 처리)
-  async function updateAllTodos(parentId?: string): Promise<void[]> {
+  // 재귀적으로 모든 할일 업데이트
+  async function updateAllTodos(parentId?: string): Promise<void> {
     const todos = await getHierarchicalTodosByParent(parentId);
     
-    const updatePromises = todos.map(async (todo) => {
+    for (const todo of todos) {
       // 현재 할일 업데이트
-      const updatePromise = updateHierarchicalTodo(todo.id, { 
+      await updateHierarchicalTodo(todo.id, { 
         isExpanded: expand,
         updatedAt: new Date().toISOString()
       });
       
-      // 자식이 있으면 자식들도 업데이트 (병렬)
-      const childrenPromise = todo.children.length > 0 
-        ? updateAllTodos(todo.id) 
-        : Promise.resolve([]);
-      
-      return Promise.all([updatePromise, childrenPromise]);
-    });
-    
-    return Promise.all(updatePromises);
+      // 자식이 있으면 자식들도 업데이트
+      if (todo.children.length > 0) {
+        await updateAllTodos(todo.id);
+      }
+    }
   }
   
   await updateAllTodos(); // 최상위부터 시작
@@ -739,18 +735,7 @@ export async function expandAllHierarchicalTodos(expand: boolean) {
 // 현재 전체가 펼쳐진 상태인지 확인하는 함수
 export async function checkAllExpanded() {
   try {
-    const db = await getDB();
-    const tx = db.transaction(['hierarchicalTodos'], 'readonly');
-    const store = tx.objectStore('hierarchicalTodos');
-    
-    const request = store.getAll();
-    const todos = await new Promise<HierarchicalTodo[]>((resolve, reject) => {
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-    
-    // 트랜잭션 완료 대기
-    await tx.complete;
+    const todos = await getHierarchicalTodos();
     
     // 자식이 있는 할일들만 확인 (자식이 없으면 펼치기/접기가 의미 없음)
     const todosWithChildren = todos.filter(todo => todo.children && todo.children.length > 0);

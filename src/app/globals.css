@@ -109,6 +109,11 @@ body {
   background: var(--text-muted);
 }
 
+/* TodoFilters 스크롤바 숨기기 */
+.todo-filters-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 /* Custom utility classes - JSON 테마의 accent.gradient 사용 */
 .text-gradient {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
