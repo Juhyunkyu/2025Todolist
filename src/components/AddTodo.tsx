@@ -28,6 +28,9 @@ interface AddTodoProps {
     alarmTime?: string;
     isPinned?: boolean;
   }) => void;
+  // 그룹 관련 props 추가
+  activeFilter?: string;
+  groups?: Array<{ id: string; name: string; color?: string }>;
 }
 
 // 세련된 SVG 아이콘들
@@ -143,6 +146,8 @@ const AddTodo: React.FC<AddTodoProps> = ({
   isEditMode = false,
   editTodo,
   onEdit,
+  activeFilter,
+  groups = [],
 }) => {
   const { currentTheme } = useTheme();
   const [title, setTitle] = useState(
@@ -296,6 +301,15 @@ const AddTodo: React.FC<AddTodoProps> = ({
       e.preventDefault();
       if (title.trim() === "") return;
 
+      // 현재 선택된 그룹 확인
+      let groupTags: string[] = [];
+      if (activeFilter && activeFilter !== "all") {
+        const selectedGroup = groups.find((g) => g.id === activeFilter);
+        if (selectedGroup) {
+          groupTags = [selectedGroup.name];
+        }
+      }
+
       const todoData = {
         title: title.trim(),
         date,
@@ -309,7 +323,17 @@ const AddTodo: React.FC<AddTodoProps> = ({
         onAdd(todoData);
       }
     },
-    [title, date, alarmTime, isPinned, onAdd, onEdit, isEditMode]
+    [
+      title,
+      date,
+      alarmTime,
+      isPinned,
+      onAdd,
+      onEdit,
+      isEditMode,
+      activeFilter,
+      groups,
+    ]
   );
 
   // 스타일 정의
@@ -318,6 +342,7 @@ const AddTodo: React.FC<AddTodoProps> = ({
     backgroundColor: currentTheme.colors.background.secondary,
     borderRadius: currentTheme.borderRadius.md,
     marginBottom: currentTheme.spacing["4"],
+    marginTop: currentTheme.spacing["2"], // 필터 탭과의 간격 추가
   };
 
   const headerStyles: React.CSSProperties = {
@@ -344,9 +369,10 @@ const AddTodo: React.FC<AddTodoProps> = ({
     alignItems: "center",
     gap: currentTheme.spacing["1"],
     padding: `${currentTheme.spacing["1"]} ${currentTheme.spacing["2"]}`,
+    height: "32px", // 모든 버튼의 높이 통일
     backgroundColor: currentTheme.colors.background.tertiary,
     border: `1px solid ${currentTheme.colors.border.default}`,
-    borderRadius: currentTheme.borderRadius.sm,
+    borderRadius: currentTheme.borderRadius.md, // 더 둥글게 변경
     fontSize: currentTheme.typography.fontSize.sm,
     color: currentTheme.colors.text.primary,
     cursor: "pointer",
@@ -378,9 +404,10 @@ const AddTodo: React.FC<AddTodoProps> = ({
     alignItems: "center",
     gap: currentTheme.spacing["2"],
     padding: `${currentTheme.spacing["1"]} ${currentTheme.spacing["2"]}`,
+    height: "32px", // 다른 버튼들과 높이 통일
     backgroundColor: currentTheme.colors.primary.brand + "20",
     border: `1px solid ${currentTheme.colors.primary.brand}`,
-    borderRadius: currentTheme.borderRadius.sm,
+    borderRadius: currentTheme.borderRadius.md, // 더 둥글게 변경
     fontSize: currentTheme.typography.fontSize.sm,
     color: currentTheme.colors.primary.brand,
   };
@@ -393,7 +420,7 @@ const AddTodo: React.FC<AddTodoProps> = ({
     height: "32px",
     backgroundColor: currentTheme.colors.background.tertiary,
     border: `1px solid ${currentTheme.colors.border.default}`,
-    borderRadius: currentTheme.borderRadius.sm,
+    borderRadius: currentTheme.borderRadius.md, // 더 둥글게 변경
     cursor: "pointer",
     transition: `all ${currentTheme.animation.duration.fast} ${currentTheme.animation.easing.default}`,
   };

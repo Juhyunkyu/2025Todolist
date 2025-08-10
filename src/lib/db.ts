@@ -1,4 +1,4 @@
-import { openDB, DBSchema, IDBPDatabase } from 'idb';
+import { openDB, DBSchema, IDBPDatabase, deleteDB } from 'idb';
 
 // ========================
 // 데이터베이스 스키마 정의
@@ -98,6 +98,20 @@ interface TodoPlannerDB extends DBSchema {
       lastBackup?: string;
     };
   };
+  groups: {
+    key: string;
+    value: {
+      id: string;
+      name: string;
+      color?: string;
+      order: number;
+      createdAt: string;
+      updatedAt: string;
+    };
+    indexes: {
+      'by-order': number;
+    };
+  };
 }
 
 // ========================
@@ -182,7 +196,7 @@ let db: IDBPDatabase<TodoPlannerDB> | null = null;
 export async function initDB(): Promise<IDBPDatabase<TodoPlannerDB>> {
   if (db) return db;
 
-  db = await openDB<TodoPlannerDB>('todo-planner-v3', 3, {
+  db = await openDB<TodoPlannerDB>('todo-planner-v4', 4, {
     upgrade(db, oldVersion) {
       console.log(`Database upgrade: version ${oldVersion} → 3`);
       
@@ -232,6 +246,16 @@ export async function initDB(): Promise<IDBPDatabase<TodoPlannerDB>> {
         hierarchicalTodosStore.createIndex('by-tags', 'tags');
         
         console.log('Hierarchical todos schema upgraded successfully');
+      }
+
+      // v4: 그룹 스토어 추가
+      if (oldVersion < 4) {
+        console.log('Adding groups store...');
+        
+        const groupsStore = db.createObjectStore('groups', { keyPath: 'id' });
+        groupsStore.createIndex('by-order', 'order');
+        
+        console.log('Groups store added successfully');
       }
     },
     
@@ -436,6 +460,60 @@ export async function deleteTemplate(id: string) {
   }, 'deleteTemplate');
 }
 
+// ========================
+// 그룹 관련 함수들
+// ========================
+
+export async function addGroup(group: Omit<TodoPlannerDB['groups']['value'], 'id' | 'createdAt' | 'updatedAt'>) {
+  return await withTransaction(async () => {
+    const db = await getDB();
+    const newGroup = createCommonFields(group);
+    await db.add('groups', newGroup);
+    return newGroup;
+  }, 'addGroup');
+}
+
+export async function getGroups(): Promise<TodoPlannerDB['groups']['value'][]> {
+  return await withTransaction(async () => {
+    const db = await getDB();
+    const groups = await db.getAll('groups');
+    return groups.sort((a, b) => a.order - b.order);
+  }, 'getGroups');
+}
+
+export async function getGroupById(id: string): Promise<TodoPlannerDB['groups']['value'] | undefined> {
+  return await withTransaction(async () => {
+    const db = await getDB();
+    return await db.get('groups', id);
+  }, 'getGroupById');
+}
+
+export async function updateGroup(id: string, updates: Partial<TodoPlannerDB['groups']['value']>) {
+  return await withTransaction(async () => {
+    const db = await getDB();
+    const existingGroup = await db.get('groups', id);
+    if (!existingGroup) {
+      throw new DatabaseError(`Group with id ${id} not found`, 'updateGroup');
+    }
+
+    const updatedGroup = {
+      ...existingGroup,
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await db.put('groups', updatedGroup);
+    return updatedGroup;
+  }, 'updateGroup');
+}
+
+export async function deleteGroup(id: string) {
+  return await withTransaction(async () => {
+    const db = await getDB();
+    await db.delete('groups', id);
+  }, 'deleteGroup');
+}
+
 // Settings
 export async function getSettings(): Promise<TodoPlannerDB['settings']['value']> {
   return await withTransaction(async () => {
@@ -492,7 +570,31 @@ export async function clearAllData() {
     await db.clear('templates');
     await db.clear('settings');
     await db.clear('hierarchicalTodos');
+    await db.clear('groups');
   }, 'clearAllData');
+}
+
+// 데이터베이스 강제 초기화 (스키마 업그레이드 문제 해결용)
+export async function forceResetDatabase() {
+  try {
+    // 기존 데이터베이스 연결 해제
+    if (db) {
+      db.close();
+      db = null;
+    }
+    
+    // 브라우저에서 데이터베이스 삭제
+    await deleteDB('todo-planner-v4');
+    
+    // 새 데이터베이스 생성
+    await initDB();
+    
+    console.log('Database reset successfully');
+    return true;
+  } catch (error) {
+    console.error('Failed to reset database:', error);
+    return false;
+  }
 }
 
 export async function exportData() {
@@ -503,6 +605,7 @@ export async function exportData() {
     const templates = await getTemplates();
     const settings = await getSettings();
     const hierarchicalTodos = await getHierarchicalTodos();
+    const groups = await getGroups();
 
     return {
       todos,
@@ -511,6 +614,7 @@ export async function exportData() {
       templates,
       settings,
       hierarchicalTodos,
+      groups,
       exportedAt: new Date().toISOString(),
     };
   }, 'exportData');
@@ -542,6 +646,10 @@ export async function importData(data: Awaited<ReturnType<typeof exportData>>) {
     
     for (const hierarchicalTodo of data.hierarchicalTodos) {
       await db.add('hierarchicalTodos', hierarchicalTodo);
+    }
+    
+    for (const group of data.groups) {
+      await db.add('groups', group);
     }
     
     await db.put('settings', data.settings);

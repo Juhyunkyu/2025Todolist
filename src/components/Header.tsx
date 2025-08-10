@@ -7,9 +7,14 @@ import { useTheme } from "@/contexts/ThemeContext";
 interface HeaderProps {
   onSearch?: (query: string) => void;
   onSettingsClick?: () => void;
+  onThemeChange?: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ onSearch, onSettingsClick }) => {
+const Header: React.FC<HeaderProps> = ({
+  onSearch,
+  onSettingsClick,
+  onThemeChange,
+}) => {
   const { currentTheme, selectedTheme } = useTheme();
   const [searchQuery, setSearchQuery] = useState("");
   const [windowWidth, setWindowWidth] = useState(1024);
@@ -279,6 +284,16 @@ const Header: React.FC<HeaderProps> = ({ onSearch, onSettingsClick }) => {
             {SearchIcon}
           </Button>
         )}
+        {/* 테마 변경 버튼 */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onThemeChange}
+          style={settingsButtonStyles}
+          title={`현재 테마: ${selectedTheme}`}
+        >
+          🎨
+        </Button>
         <Button
           variant="ghost"
           size="sm"

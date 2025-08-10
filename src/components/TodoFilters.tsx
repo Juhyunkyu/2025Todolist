@@ -10,12 +10,19 @@ import React, {
 import { useTheme } from "@/contexts/ThemeContext";
 
 // 타입 정의
-type FilterType = "all" | "today" | "tomorrow" | "week" | "defaultGroup";
+type FilterType =
+  | "all"
+  | "today"
+  | "tomorrow"
+  | "week"
+  | "defaultGroup"
+  | string;
 
 interface FilterInfo {
   key: FilterType;
   label: string;
   ariaLabel: string;
+  isGroup?: boolean;
 }
 
 interface FilterCounts {
@@ -24,6 +31,7 @@ interface FilterCounts {
   tomorrow: number;
   week: number;
   defaultGroup: number;
+  [key: string]: number; // 동적 그룹 카운트를 위한 인덱스 시그니처
 }
 
 interface TodoFiltersProps {
@@ -31,12 +39,13 @@ interface TodoFiltersProps {
   onFilterChange: (filter: FilterType) => void;
   onAddGroup?: () => void;
   counts: FilterCounts;
+  groups?: Array<{ id: string; name: string; color?: string }>;
   /** 필터 컨테이너의 ID (접근성을 위해 필요) */
   containerId?: string;
 }
 
-// 필터 정보 상수
-const FILTERS: FilterInfo[] = [
+// 기본 필터 정보 상수
+const BASE_FILTERS: FilterInfo[] = [
   { key: "all", label: "All", ariaLabel: "모든 할일" },
   { key: "today", label: "오늘", ariaLabel: "오늘 할일" },
   { key: "tomorrow", label: "내일", ariaLabel: "내일 할일" },
@@ -108,6 +117,7 @@ const TodoFilters: React.FC<TodoFiltersProps> = ({
   onFilterChange,
   onAddGroup,
   counts,
+  groups = [],
   containerId = "todo-filters",
 }) => {
   const { currentTheme } = useTheme();
@@ -115,15 +125,23 @@ const TodoFilters: React.FC<TodoFiltersProps> = ({
   const { showLeftIndicator, showRightIndicator, scrollToDirection } =
     useScrollNavigation(scrollContainerRef);
 
-  // 필터 데이터 메모이제이션
-  const filters = useMemo(
-    () =>
-      FILTERS.map((filter) => ({
-        ...filter,
-        count: counts[filter.key],
-      })),
-    [counts]
-  );
+  // 필터 데이터 메모이제이션 (기본 필터 + 동적 그룹)
+  const filters = useMemo(() => {
+    const baseFilters = BASE_FILTERS.map((filter) => ({
+      ...filter,
+      count: counts[filter.key],
+    }));
+
+    const groupFilters = groups.map((group) => ({
+      key: group.id,
+      label: group.name,
+      ariaLabel: `${group.name} 그룹 할일`,
+      isGroup: true,
+      count: counts[group.id] || 0,
+    }));
+
+    return [...baseFilters, ...groupFilters];
+  }, [counts, groups]);
 
   // 컨테이너 스타일 메모이제이션
   const containerStyles: React.CSSProperties = useMemo(

@@ -6,16 +6,26 @@ import Header from "@/components/Header";
 import TabNavigation from "@/components/TabNavigation";
 import TodoFilters from "@/components/TodoFilters";
 import AddTodo from "@/components/AddTodo";
+import AddGroupModal from "@/components/AddGroupModal";
 import HierarchicalTodoList from "@/components/HierarchicalTodoList";
 import type { HierarchicalTodo } from "@/components/HierarchicalTodoItem";
 import {
   getHierarchicalTodosByParent,
   addHierarchicalTodo,
   getHierarchicalTodoProgress,
+  getGroups,
+  addGroup,
+  forceResetDatabase,
 } from "@/lib/db";
 
 // 타입 정의
-type FilterType = "all" | "today" | "tomorrow" | "week" | "defaultGroup";
+type FilterType =
+  | "all"
+  | "today"
+  | "tomorrow"
+  | "week"
+  | "defaultGroup"
+  | string;
 type TabType = "todo" | "note";
 
 // 상수 정의
@@ -66,7 +76,7 @@ interface ErrorState {
 
 // 내부 컴포넌트 - useTheme 사용
 function HomeContent() {
-  const { currentTheme } = useTheme();
+  const { currentTheme, selectedTheme, setSelectedTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<TabType>("todo");
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [todos, setTodos] = useState<HierarchicalTodo[]>([]);
@@ -78,6 +88,10 @@ function HomeContent() {
     hasError: false,
     message: "",
   });
+  const [groups, setGroups] = useState<
+    Array<{ id: string; name: string; color?: string }>
+  >([]);
+  const [showAddGroupModal, setShowAddGroupModal] = useState(false);
 
   // 화면 크기 감지
   useEffect(() => {
@@ -110,10 +124,21 @@ function HomeContent() {
     }
   }, []);
 
+  // 그룹 목록 로드
+  const loadGroups = useCallback(async () => {
+    try {
+      const groupsData = await getGroups();
+      setGroups(groupsData);
+    } catch (error) {
+      console.error("Failed to load groups:", error);
+    }
+  }, []);
+
   // 컴포넌트 마운트 시 로드
   useEffect(() => {
     loadTodos();
-  }, [loadTodos]);
+    loadGroups();
+  }, [loadTodos, loadGroups]);
 
   // 필터링된 할일 목록 계산
   const filteredAndSearchedTodos = useMemo(() => {
@@ -151,7 +176,15 @@ function HomeContent() {
         );
         break;
       default:
-        // "all" - 모든 할일 표시
+        // 그룹 필터 또는 "all"
+        if (activeFilter !== "all") {
+          const selectedGroup = groups.find((g) => g.id === activeFilter);
+          if (selectedGroup) {
+            filtered = filtered.filter((todo) =>
+              todo.tags.includes(selectedGroup.name)
+            );
+          }
+        }
         break;
     }
 
@@ -168,12 +201,26 @@ function HomeContent() {
     }) => {
       try {
         const nextOrder = todos.length;
+
+        // 현재 선택된 그룹 확인
+        const tags: string[] = [];
+        if (todoData.isPinned) {
+          tags.push("상단고정");
+        }
+
+        if (activeFilter && activeFilter !== "all") {
+          const selectedGroup = groups.find((g) => g.id === activeFilter);
+          if (selectedGroup) {
+            tags.push(selectedGroup.name);
+          }
+        }
+
         await addHierarchicalTodo({
           title: todoData.title,
           isDone: false,
           isExpanded: false,
           order: nextOrder,
-          tags: todoData.isPinned ? ["상단고정"] : [],
+          tags,
           date: todoData.date,
           repeat: "none",
           alarmTime: todoData.alarmTime,
@@ -185,7 +232,7 @@ function HomeContent() {
         console.error("Failed to add todo:", error);
       }
     },
-    [todos.length, loadTodos]
+    [todos.length, loadTodos, activeFilter, groups]
   );
 
   // 검색 처리
@@ -200,11 +247,61 @@ function HomeContent() {
 
   // 그룹 추가
   const handleAddGroup = useCallback(() => {
-    // TODO: 그룹 추가 기능 구현
-    console.log("Add group clicked");
-    // 임시로 알림 표시
-    alert("그룹 추가 기능은 곧 구현될 예정입니다.");
+    setShowAddGroupModal(true);
   }, []);
+
+  // 그룹 추가 처리
+  const handleAddGroupSubmit = useCallback(
+    async (groupName: string) => {
+      try {
+        const nextOrder = groups.length;
+        await addGroup({
+          name: groupName,
+          order: nextOrder,
+        });
+        await loadGroups();
+      } catch (error) {
+        console.error("Failed to add group:", error);
+        // 데이터베이스 오류 시 초기화 시도
+        if (
+          error instanceof Error &&
+          error.message.includes("object stores was not found")
+        ) {
+          console.log("Attempting to reset database...");
+          const resetSuccess = await forceResetDatabase();
+          if (resetSuccess) {
+            // 재시도
+            await addGroup({
+              name: groupName,
+              order: 0, // 초기화 후 첫 번째 그룹
+            });
+            await loadGroups();
+          }
+        }
+      }
+    },
+    [groups.length, loadGroups]
+  );
+
+  // 테마 변경
+  const handleThemeChange = useCallback(async () => {
+    const themes = [
+      "dark",
+      "light",
+      "orange",
+      "pastel",
+      "purple",
+      "gray",
+      "gray-dark",
+    ] as const;
+    const currentIndex = themes.indexOf(
+      selectedTheme as (typeof themes)[number]
+    );
+    const nextIndex = (currentIndex + 1) % themes.length;
+    const newTheme = themes[nextIndex];
+
+    await setSelectedTheme(newTheme);
+  }, [selectedTheme, setSelectedTheme]);
 
   // 설정 클릭 (나중에 구현)
   const handleSettingsClick = useCallback(() => {
@@ -214,7 +311,7 @@ function HomeContent() {
 
   // 카운트 계산
   const counts = useMemo(() => {
-    return {
+    const baseCounts = {
       all: todos.length,
       today: todos.filter((todo) => dateUtils.isDateToday(todo.date)).length,
       tomorrow: todos.filter((todo) => dateUtils.isDateTomorrow(todo.date))
@@ -225,7 +322,17 @@ function HomeContent() {
         (todo) => !todo.tags.length || todo.tags.includes("기본그룹")
       ).length,
     };
-  }, [todos]);
+
+    // 그룹별 카운트 추가
+    const groupCounts = groups.reduce((acc, group) => {
+      acc[group.id] = todos.filter((todo) =>
+        todo.tags.includes(group.name)
+      ).length;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return { ...baseCounts, ...groupCounts };
+  }, [todos, groups]);
 
   // 할일 추가 버튼 클릭
   const handleAddTodoClick = useCallback(() => {
@@ -319,7 +426,11 @@ function HomeContent() {
     <div style={containerStyles}>
       <main style={mainStyles} role="main" aria-label="할일 관리 메인 콘텐츠">
         {/* 헤더 */}
-        <Header onSearch={handleSearch} onSettingsClick={handleSettingsClick} />
+        <Header
+          onSearch={handleSearch}
+          onSettingsClick={handleSettingsClick}
+          onThemeChange={handleThemeChange}
+        />
 
         {/* 탭 네비게이션 */}
         <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
@@ -368,6 +479,7 @@ function HomeContent() {
                 onFilterChange={handleFilterChange}
                 onAddGroup={handleAddGroup}
                 counts={counts}
+                groups={groups}
               />
             </div>
 
@@ -381,8 +493,17 @@ function HomeContent() {
                     ? dateUtils.getTodayDate()
                     : undefined
                 }
+                activeFilter={activeFilter}
+                groups={groups}
               />
             )}
+
+            {/* 그룹 추가 모달 */}
+            <AddGroupModal
+              isOpen={showAddGroupModal}
+              onClose={() => setShowAddGroupModal(false)}
+              onAdd={handleAddGroupSubmit}
+            />
 
             {/* 할일 목록 또는 빈 상태 */}
             {!isLoading && (
