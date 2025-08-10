@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useCallback } from "react";
 import { Button, Input } from "@/components/ui";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useHierarchicalTodoItem } from "@/hooks/useHierarchicalTodoItem";
 import TodoItemActions from "./TodoItemActions";
 import TodoItemContent from "./TodoItemContent";
 import AddChildInput from "./AddChildInput";
+import AddTodo from "./AddTodo";
 import {
   ExpandIcon,
   CollapseIcon,
@@ -87,6 +88,33 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = React.memo(
       setShowActions,
       setError,
     } = useHierarchicalTodoItem({ todo, onUpdate, level });
+
+    // 최상위 할일 수정 모드 상태
+    const [isFullEditMode, setIsFullEditMode] = useState(false);
+
+    // 최상위 할일 수정 핸들러
+    const handleFullEditSave = useCallback(
+      async (updates: {
+        title: string;
+        date: string | null;
+        alarmTime?: string;
+        isPinned?: boolean;
+      }) => {
+        try {
+          // 기존 수정 로직과 통합
+          await handleSaveEdit();
+          setIsFullEditMode(false);
+        } catch (error) {
+          console.error("Failed to save todo:", error);
+        }
+      },
+      [handleSaveEdit]
+    );
+
+    const handleFullEditCancel = useCallback(() => {
+      setIsFullEditMode(false);
+      handleCancelEdit();
+    }, [handleCancelEdit]);
 
     // 드래그앤드롭 센서 설정
     const sensors = useSensors(
@@ -237,6 +265,19 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = React.memo(
       <CircleIcon size={16} color={currentTheme.colors.text.secondary} />
     );
 
+    // 최상위 할일이고 전체 수정 모드일 때 AddTodo 컴포넌트를 수정 모드로 렌더링
+    if (level === 0 && isFullEditMode) {
+      return (
+        <AddTodo
+          isEditMode={true}
+          editTodo={todo}
+          onAdd={() => {}} // 수정 모드에서는 사용되지 않음
+          onEdit={handleFullEditSave}
+          onCancel={handleFullEditCancel}
+        />
+      );
+    }
+
     return (
       <div>
         {/* 메인 항목 */}
@@ -309,7 +350,15 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = React.memo(
                   onTitleChange={setEditTitle}
                   onSave={handleSaveEdit}
                   onCancel={handleCancelEdit}
-                  onDoubleClick={() => setIsEditing(true)}
+                  onDoubleClick={() => {
+                    if (level === 0) {
+                      // 최상위 할일이면 전체 수정 모드로 전환
+                      setIsFullEditMode(true);
+                    } else {
+                      // 하위 할일이면 기존 수정 모드
+                      setIsEditing(true);
+                    }
+                  }}
                 />
 
                 {/* 액션 버튼들 - 텍스트 바로 아래에 표시 (수정 모드가 아닐 때만) */}
@@ -322,7 +371,15 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = React.memo(
                   >
                     <TodoItemActions
                       isEditing={isEditing}
-                      onEdit={() => setIsEditing(true)}
+                      onEdit={() => {
+                        if (level === 0) {
+                          // 최상위 할일이면 전체 수정 모드로 전환
+                          setIsFullEditMode(true);
+                        } else {
+                          // 하위 할일이면 기존 수정 모드
+                          setIsEditing(true);
+                        }
+                      }}
                       onAddChild={() => setIsAddingChild(true)}
                       onCopy={handleCopyAsMarkdown}
                       onDelete={handleDelete}

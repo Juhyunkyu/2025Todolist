@@ -13,6 +13,21 @@ interface AddTodoProps {
   }) => void;
   onCancel: () => void;
   initialDate?: string;
+  // 수정 모드용 props 추가
+  isEditMode?: boolean;
+  editTodo?: {
+    id: string;
+    title: string;
+    date: string | null;
+    alarmTime?: string;
+    tags: string[];
+  };
+  onEdit?: (updates: {
+    title: string;
+    date: string | null;
+    alarmTime?: string;
+    isPinned?: boolean;
+  }) => void;
 }
 
 // 세련된 SVG 아이콘들
@@ -121,12 +136,27 @@ const CloseIcon = ({
   </svg>
 );
 
-const AddTodo: React.FC<AddTodoProps> = ({ onAdd, onCancel, initialDate }) => {
+const AddTodo: React.FC<AddTodoProps> = ({
+  onAdd,
+  onCancel,
+  initialDate,
+  isEditMode = false,
+  editTodo,
+  onEdit,
+}) => {
   const { currentTheme } = useTheme();
-  const [title, setTitle] = useState("");
-  const [date, setDate] = useState<string | null>(initialDate || null);
-  const [alarmTime, setAlarmTime] = useState("");
-  const [isPinned, setIsPinned] = useState(false);
+  const [title, setTitle] = useState(
+    isEditMode && editTodo ? editTodo.title : ""
+  );
+  const [date, setDate] = useState<string | null>(
+    isEditMode && editTodo ? editTodo.date : initialDate || null
+  );
+  const [alarmTime, setAlarmTime] = useState(
+    isEditMode && editTodo ? editTodo.alarmTime || "" : ""
+  );
+  const [isPinned, setIsPinned] = useState(
+    isEditMode && editTodo ? editTodo.tags.includes("상단고정") : false
+  );
   const [isDateSelected, setIsDateSelected] = useState(false);
   const [isTodaySelected, setIsTodaySelected] = useState(false);
   const [isTomorrowSelected, setIsTomorrowSelected] = useState(false);
@@ -155,16 +185,17 @@ const AddTodo: React.FC<AddTodoProps> = ({ onAdd, onCancel, initialDate }) => {
 
   // 초기 날짜 설정
   useEffect(() => {
-    if (initialDate) {
-      setDate(initialDate);
+    const targetDate = isEditMode && editTodo ? editTodo.date : initialDate;
+    if (targetDate) {
+      setDate(targetDate);
       const today = getTodayString();
       const tomorrow = getTomorrowString();
 
-      setIsTodaySelected(initialDate === today);
-      setIsTomorrowSelected(initialDate === tomorrow);
-      setIsDateSelected(initialDate !== today && initialDate !== tomorrow);
+      setIsTodaySelected(targetDate === today);
+      setIsTomorrowSelected(targetDate === tomorrow);
+      setIsDateSelected(targetDate !== today && targetDate !== tomorrow);
     }
-  }, [initialDate, getTodayString, getTomorrowString]);
+  }, [initialDate, editTodo, isEditMode, getTodayString, getTomorrowString]);
 
   // 날짜 선택 핸들러들
   const handleDatePickerChange = useCallback(
@@ -263,16 +294,22 @@ const AddTodo: React.FC<AddTodoProps> = ({ onAdd, onCancel, initialDate }) => {
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
-      if (title.trim()) {
-        onAdd({
-          title: title.trim(),
-          date,
-          alarmTime: alarmTime || undefined,
-          isPinned,
-        });
+      if (title.trim() === "") return;
+
+      const todoData = {
+        title: title.trim(),
+        date,
+        alarmTime: alarmTime || undefined,
+        isPinned,
+      };
+
+      if (isEditMode && onEdit) {
+        onEdit(todoData);
+      } else {
+        onAdd(todoData);
       }
     },
-    [title, date, alarmTime, isPinned, onAdd]
+    [title, date, alarmTime, isPinned, onAdd, onEdit, isEditMode]
   );
 
   // 스타일 정의
@@ -372,6 +409,7 @@ const AddTodo: React.FC<AddTodoProps> = ({ onAdd, onCancel, initialDate }) => {
     justifyContent: "flex-end",
     gap: currentTheme.spacing["2"],
     marginTop: currentTheme.spacing["3"],
+    width: "100%", // 전체 너비 사용
   };
 
   // 날짜가 활성화되었는지 확인 (날짜 없음은 비활성 상태로 간주)
@@ -493,8 +531,9 @@ const AddTodo: React.FC<AddTodoProps> = ({ onAdd, onCancel, initialDate }) => {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           style={{
-            width: "100%",
+            width: "calc(100% - 0px)", // 즐겨찾기 버튼의 오른쪽 테두리까지 맞춤
             marginBottom: currentTheme.spacing["3"],
+            boxSizing: "border-box", // 패딩과 보더를 포함한 너비 계산
           }}
           autoFocus
         />
@@ -515,7 +554,7 @@ const AddTodo: React.FC<AddTodoProps> = ({ onAdd, onCancel, initialDate }) => {
             size="sm"
             disabled={!title.trim()}
           >
-            추가
+            {isEditMode ? "수정" : "추가"}
           </Button>
         </div>
       </form>
