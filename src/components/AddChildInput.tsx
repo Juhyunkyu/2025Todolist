@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Input, Button } from "@/components/ui";
 import { useTheme } from "@/contexts/ThemeContext";
 
@@ -21,6 +21,31 @@ const AddChildInput: React.FC<AddChildInputProps> = ({
 }) => {
   const { currentTheme } = useTheme();
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // 화면 크기 감지
+  const [screenWidth, setScreenWidth] = useState(1200);
+
+  useEffect(() => {
+    const checkScreenSize = () => {
+      const width = window.innerWidth;
+      setScreenWidth(width);
+    };
+
+    checkScreenSize();
+    window.addEventListener("resize", checkScreenSize);
+    return () => window.removeEventListener("resize", checkScreenSize);
+  }, []);
+
+  // 반응형 상태 계산
+  const isMobile = screenWidth < 400;
+
+  // 동적 여백 계산
+  const getDynamicSpacing = (baseSpacing: string) => {
+    if (screenWidth >= 1200) return baseSpacing;
+    if (screenWidth >= 768) return `calc(${baseSpacing} * 0.8)`;
+    if (screenWidth >= 400) return `calc(${baseSpacing} * 0.6)`;
+    return `calc(${baseSpacing} * 0.4)`;
+  };
 
   // 외부 클릭 감지하여 추가 모드 취소
   useEffect(() => {
@@ -46,13 +71,17 @@ const AddChildInput: React.FC<AddChildInputProps> = ({
 
   const containerStyles: React.CSSProperties = {
     display: "flex",
-    gap: currentTheme.spacing["2"],
+    gap: isMobile
+      ? getDynamicSpacing(currentTheme.spacing["1"])
+      : getDynamicSpacing(currentTheme.spacing["2"]),
     alignItems: "center",
-    padding: currentTheme.spacing["2"],
-    paddingLeft: `${level * 16 + 44}px`, // 상위 항목과 동일한 들여쓰기
+    padding: isMobile
+      ? getDynamicSpacing(currentTheme.spacing["1"])
+      : getDynamicSpacing(currentTheme.spacing["2"]),
+    paddingLeft: 0, // 제목과 동일한 위치에 맞춤
     backgroundColor: currentTheme.colors.background.secondary,
     borderRadius: currentTheme.borderRadius.md,
-    marginTop: currentTheme.spacing["1"],
+    marginTop: getDynamicSpacing(currentTheme.spacing["1"]),
   };
 
   return (

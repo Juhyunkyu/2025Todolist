@@ -1,12 +1,19 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { Button, Input } from "@/components/ui";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useHierarchicalTodoItem } from "@/hooks/useHierarchicalTodoItem";
 import TodoItemActions from "./TodoItemActions";
 import TodoItemContent from "./TodoItemContent";
 import AddChildInput from "./AddChildInput";
+import {
+  ExpandIcon,
+  CollapseIcon,
+  CheckIcon,
+  CircleIcon,
+  LoadingIcon,
+} from "./icons/ActionIcons";
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -98,6 +105,31 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = React.memo(
         disabled: false,
       });
 
+    // 화면 크기 감지 (클라이언트 사이드에서만)
+    const [screenWidth, setScreenWidth] = useState(1200);
+
+    React.useEffect(() => {
+      const checkScreenSize = () => {
+        const width = window.innerWidth;
+        setScreenWidth(width);
+      };
+
+      checkScreenSize();
+      window.addEventListener("resize", checkScreenSize);
+      return () => window.removeEventListener("resize", checkScreenSize);
+    }, []);
+
+    // 반응형 상태 계산
+    const isMobile = screenWidth < 400;
+
+    // 동적 여백 계산
+    const getDynamicSpacing = (baseSpacing: string) => {
+      if (screenWidth >= 1200) return baseSpacing;
+      if (screenWidth >= 768) return `calc(${baseSpacing} * 0.8)`;
+      if (screenWidth >= 400) return `calc(${baseSpacing} * 0.6)`;
+      return `calc(${baseSpacing} * 0.4)`;
+    };
+
     // 스타일 계산 (메모이제이션)
     const styles = useMemo(
       () => ({
@@ -107,26 +139,43 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = React.memo(
           zIndex: isDragging ? 1000 : 1,
           display: "flex",
           alignItems: "center",
-          padding: `${currentTheme.spacing["2"]} 0`,
-          marginLeft: `${level * 16}px`, // 들여쓰기 간격 줄임 (24px → 16px)
+          padding: `${getDynamicSpacing(currentTheme.spacing["2"])} 0`,
+          marginLeft: isMobile ? `${level * 8}px` : `${level * 16}px`, // 모바일에서 들여쓰기 줄임
           backgroundColor: currentTheme.colors.background.primary,
           transition: `all ${currentTheme.animation.duration.fast} ${currentTheme.animation.easing.default}`,
           position: "relative" as const,
-          minHeight: "40px",
+          minHeight: isMobile ? "32px" : "40px",
           // 계층 레벨에 따른 시각적 구분
-          paddingLeft: level > 0 ? currentTheme.spacing["3"] : 0,
+          paddingLeft:
+            level > 0
+              ? isMobile
+                ? getDynamicSpacing(currentTheme.spacing["2"])
+                : getDynamicSpacing(currentTheme.spacing["3"])
+              : 0,
         },
         header: {
           display: "flex",
           flexDirection: "column" as const,
           flex: 1,
-          paddingLeft: level > 0 ? currentTheme.spacing["2"] : 0,
+          paddingLeft:
+            level > 0
+              ? isMobile
+                ? getDynamicSpacing(currentTheme.spacing["1"])
+                : getDynamicSpacing(currentTheme.spacing["2"])
+              : 0,
         },
         titleRow: {
           display: "flex",
-          alignItems: "center",
-          gap: currentTheme.spacing["2"],
+          alignItems: "flex-start", // 상단 정렬로 변경하여 고정 위치 유지
+          gap: isMobile
+            ? getDynamicSpacing(currentTheme.spacing["1"])
+            : getDynamicSpacing(currentTheme.spacing["2"]),
           width: "100%",
+        },
+        titleSection: {
+          display: "flex",
+          flexDirection: "column" as const,
+          flex: 1,
         },
         expansionButton: {
           background: "none",
@@ -135,11 +184,12 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = React.memo(
           color: currentTheme.colors.text.secondary,
           cursor: "pointer",
           width: "20px",
-          height: "20px",
+          height: "24px", // 고정 높이로 설정
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           padding: 0,
+          flexShrink: 0, // 크기 고정
         },
         checkboxButton: {
           background: "none",
@@ -150,11 +200,12 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = React.memo(
             : currentTheme.colors.text.secondary,
           cursor: "pointer",
           width: "20px",
-          height: "20px",
+          height: "24px", // 고정 높이로 설정
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           padding: 0,
+          flexShrink: 0, // 크기 고정
         },
 
         error: {
@@ -169,10 +220,22 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = React.memo(
 
     // 확장/축소 아이콘 (간단한 계산이므로 useMemo 불필요)
     const expansionIcon =
-      todo.children.length > 0 ? (todo.isExpanded ? "−" : "+") : null;
+      todo.children.length > 0 ? (
+        todo.isExpanded ? (
+          <CollapseIcon size={16} color={currentTheme.colors.text.secondary} />
+        ) : (
+          <ExpandIcon size={16} color={currentTheme.colors.text.secondary} />
+        )
+      ) : null;
 
     // 체크박스 아이콘 (간단한 계산이므로 useMemo 불필요)
-    const checkboxIcon = isLoading ? "⏳" : todo.isDone ? "●" : "○";
+    const checkboxIcon = isLoading ? (
+      <LoadingIcon size={16} color={currentTheme.colors.text.secondary} />
+    ) : todo.isDone ? (
+      <CheckIcon size={16} color={currentTheme.colors.primary.brand} />
+    ) : (
+      <CircleIcon size={16} color={currentTheme.colors.text.secondary} />
+    );
 
     return (
       <div>
@@ -236,38 +299,40 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = React.memo(
                 {checkboxIcon}
               </button>
 
-              {/* 제목 또는 수정 입력 */}
-              <TodoItemContent
-                todo={todo}
-                isEditing={isEditing}
-                editTitle={editTitle}
-                onTitleChange={setEditTitle}
-                onSave={handleSaveEdit}
-                onCancel={handleCancelEdit}
-                onDoubleClick={() => setIsEditing(true)}
-              />
-            </div>
-
-            {/* 액션 버튼들 - 제목 아래에 표시 */}
-            {showActions && (
-              <div
-                style={{
-                  display: "flex",
-                  marginTop: currentTheme.spacing["2"],
-                  paddingLeft: `${level * 16 + 44}px`, // 제목과 동일한 들여쓰기
-                }}
-              >
-                <TodoItemActions
+              {/* 제목 섹션 (제목 + 액션 버튼들) */}
+              <div style={styles.titleSection}>
+                {/* 제목 또는 수정 입력 */}
+                <TodoItemContent
+                  todo={todo}
                   isEditing={isEditing}
-                  onEdit={() => setIsEditing(true)}
-                  onAddChild={() => setIsAddingChild(true)}
-                  onCopy={handleCopyAsMarkdown}
-                  onDelete={handleDelete}
-                  level={level}
-                  maxLevel={MAX_HIERARCHY_LEVEL}
+                  editTitle={editTitle}
+                  onTitleChange={setEditTitle}
+                  onSave={handleSaveEdit}
+                  onCancel={handleCancelEdit}
+                  onDoubleClick={() => setIsEditing(true)}
                 />
+
+                {/* 액션 버튼들 - 텍스트 바로 아래에 표시 (수정 모드가 아닐 때만) */}
+                {showActions && !isEditing && (
+                  <div
+                    style={{
+                      display: "flex",
+                      marginTop: getDynamicSpacing(currentTheme.spacing["2"]),
+                    }}
+                  >
+                    <TodoItemActions
+                      isEditing={isEditing}
+                      onEdit={() => setIsEditing(true)}
+                      onAddChild={() => setIsAddingChild(true)}
+                      onCopy={handleCopyAsMarkdown}
+                      onDelete={handleDelete}
+                      level={level}
+                      maxLevel={MAX_HIERARCHY_LEVEL}
+                    />
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
         </div>
 

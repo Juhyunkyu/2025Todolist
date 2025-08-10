@@ -1,13 +1,11 @@
 "use client";
 
-import React, { useState, useCallback, useMemo } from "react";
-import { Button, Input, Badge } from "@/components/ui";
+import React, { useState, useMemo, useCallback } from "react";
+import { Button, Input } from "@/components/ui";
 import { useTheme } from "@/contexts/ThemeContext";
-import HierarchicalTodoItem, { HierarchicalTodo } from "./HierarchicalTodoItem";
 import { useHierarchicalTodos } from "@/hooks/useHierarchicalTodos";
-import { groupTodosByDate, formatDate } from "@/utils/todoUtils";
-import { copyHierarchicalTodosAsMarkdown } from "@/lib/db";
-
+import HierarchicalTodoItem, { HierarchicalTodo } from "./HierarchicalTodoItem";
+import { groupTodosByDate } from "@/utils/todoUtils";
 import {
   DndContext,
   closestCenter,
@@ -23,6 +21,22 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
+
+// 반응형 브레이크포인트
+const BREAKPOINTS = {
+  MOBILE: 400, // 400px 이하에서 세로 배치
+  TABLET: 768,
+  DESKTOP: 1024,
+} as const;
+
+// 날짜 포맷팅 함수
+const formatDate = (dateStr: string) => {
+  const date = new Date(dateStr);
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  const dayOfWeek = ["일", "월", "화", "수", "목", "금", "토"][date.getDay()];
+  return `${month}.${day}(${dayOfWeek})`;
+};
 
 interface HierarchicalTodoListProps {
   title?: string;
@@ -91,69 +105,60 @@ const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
     return { completed, total, percentage };
   }, [todos]);
 
-  // 새 할일 추가 핸들러
-  const handleAddTodo = useCallback(async () => {
-    if (newTodoTitle.trim() === "") return;
+  // 화면 크기 감지 (클라이언트 사이드에서만)
+  const [screenWidth, setScreenWidth] = useState(1200);
 
-    const result = await addTodo(newTodoTitle.trim());
-    if (result?.success) {
-      setNewTodoTitle("");
-      setIsAdding(false);
-      setMessage(result.message);
-      setTimeout(() => setMessage(""), 2000);
-    } else {
-      setMessage(result?.message || "할일 추가에 실패했습니다.");
-      setTimeout(() => setMessage(""), 3000);
-    }
-  }, [newTodoTitle, addTodo]);
+  React.useEffect(() => {
+    const checkScreenSize = () => {
+      const width = window.innerWidth;
+      setScreenWidth(width);
+    };
 
-  // 할일 복사 핸들러 (필터링된 데이터 기반)
-  const handleCopyTodos = useCallback(async () => {
-    try {
-      // 현재 표시된 할일들만 복사
-      const markdownLines: string[] = [];
+    checkScreenSize();
+    window.addEventListener("resize", checkScreenSize);
+    return () => window.removeEventListener("resize", checkScreenSize);
+  }, []);
 
-      // 날짜별로 그룹화된 할일들을 마크다운으로 변환
-      groupedTodos.forEach((group) => {
-        if (group.date !== "no-date") {
-          markdownLines.push(`## ${formatDate(group.date)}`);
-        }
+  // 반응형 상태 계산
+  const isMobile = screenWidth < BREAKPOINTS.MOBILE;
+  const isTablet =
+    screenWidth >= BREAKPOINTS.MOBILE && screenWidth < BREAKPOINTS.TABLET;
+  const isDesktop = screenWidth >= BREAKPOINTS.DESKTOP;
 
-        group.todos.forEach((todo) => {
-          const checkbox = todo.isDone ? "[x]" : "[ ]";
-          const indent = "  ".repeat(0); // 최상위 레벨
-          markdownLines.push(`${indent}${checkbox} ${todo.title}`);
-        });
+  // 동적 여백 계산
+  const getDynamicSpacing = (baseSpacing: string, factor: number = 1) => {
+    if (screenWidth >= 1200) return baseSpacing;
+    if (screenWidth >= 768) return `calc(${baseSpacing} * 0.8)`;
+    if (screenWidth >= 400) return `calc(${baseSpacing} * 0.6)`;
+    return `calc(${baseSpacing} * 0.4)`;
+  };
 
-        markdownLines.push(""); // 빈 줄 추가
-      });
+  // 할일 추가 핸들러
+  const handleAddTodo = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (newTodoTitle.trim() === "") return;
 
-      const markdown = markdownLines.join("\n");
-      await navigator.clipboard.writeText(markdown);
-      setMessage("현재 표시된 할일 목록이 클립보드에 복사되었습니다!");
-      setTimeout(() => setMessage(""), 2000);
-    } catch (error) {
-      console.error("Failed to copy todos:", error);
-      setMessage("복사에 실패했습니다.");
-      setTimeout(() => setMessage(""), 3000);
-    }
-  }, [groupedTodos]);
+      try {
+        await addTodo(newTodoTitle.trim());
+        setNewTodoTitle("");
+        setIsAdding(false);
+      } catch (error) {
+        setMessage("할일 추가에 실패했습니다.");
+      }
+    },
+    [newTodoTitle, addTodo]
+  );
 
-  // 전체 펼치기/접기 핸들러 (필터링된 데이터 기반)
+  // 전체 펼치기/접기 핸들러
   const handleExpandAll = useCallback(async () => {
-    if (isExpandingAll) return;
-
-    setIsExpandingAll(true);
-    const newExpandState = !isAllExpanded;
-
-    // 현재 표시된 할일들만 펼치기/접기
-    const result = await expandAll(newExpandState);
-    setMessage(
-      result?.message || "현재 표시된 할일들의 펼치기/접기가 완료되었습니다."
-    );
-    setTimeout(() => setMessage(""), 2000);
-    setIsExpandingAll(false);
-  }, [isAllExpanded, isExpandingAll, expandAll]);
+    try {
+      await expandAll(!isAllExpanded);
+      setIsExpandingAll(!isAllExpanded);
+    } catch (error) {
+      setMessage("펼치기/접기에 실패했습니다.");
+    }
+  }, [expandAll, isAllExpanded]);
 
   // 드래그 종료 핸들러
   const handleDragEnd = useCallback(
@@ -162,20 +167,41 @@ const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
 
       if (!over || active.id === over.id) return;
 
-      const activeIndex = todos.findIndex((todo) => todo.id === active.id);
-      const overIndex = todos.findIndex((todo) => todo.id === over.id);
+      const activeIndex = todos.findIndex(
+        (todo) => todo.id === String(active.id)
+      );
+      const overIndex = todos.findIndex((todo) => todo.id === String(over.id));
 
       if (activeIndex !== -1 && overIndex !== -1) {
         const newTodos = arrayMove(todos, activeIndex, overIndex);
-        const newOrder = newTodos.map((todo) => todo.id);
-
-        const result = await reorderTodos(newOrder);
-        setMessage(result?.message || "순서가 변경되었습니다!");
-        setTimeout(() => setMessage(""), 2000);
+        try {
+          const newOrder = newTodos.map((todo) => todo.id);
+          await reorderTodos(newOrder);
+        } catch (error) {
+          setMessage("순서 변경에 실패했습니다.");
+        }
       }
     },
     [todos, reorderTodos]
   );
+
+  // 할일 목록 복사 핸들러
+  const handleCopyTodos = useCallback(async () => {
+    try {
+      const markdown = todos
+        .map((todo) => {
+          const checkbox = todo.isDone ? "[x]" : "[ ]";
+          const date = todo.date ? ` (${formatDate(todo.date)})` : "";
+          return `${checkbox} ${todo.title}${date}`;
+        })
+        .join("\n");
+
+      await navigator.clipboard.writeText(markdown);
+      setMessage("할일 목록이 클립보드에 복사되었습니다.");
+    } catch (error) {
+      setMessage("복사에 실패했습니다.");
+    }
+  }, [todos]);
 
   // 스타일 정의 (메모이제이션)
   const styles = useMemo(
@@ -190,32 +216,53 @@ const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
-        marginBottom: currentTheme.spacing["4"],
-        padding: `${currentTheme.spacing["2"]} 0`,
+        marginBottom: getDynamicSpacing(currentTheme.spacing["4"]),
+        padding: `${getDynamicSpacing(currentTheme.spacing["2"])} 0`,
         backgroundColor: currentTheme.colors.background.primary,
+        flexDirection: "row" as const, // 항상 가로 배치
+        gap: getDynamicSpacing(currentTheme.spacing["2"]),
+        flexWrap: "wrap" as const,
+      },
+      headerLeft: {
+        display: "flex",
+        alignItems: "center",
+        gap: getDynamicSpacing(currentTheme.spacing["2"]),
+        flexWrap: "wrap" as const,
+      },
+      headerRight: {
+        display: "flex",
+        alignItems: "center",
+        gap: getDynamicSpacing(currentTheme.spacing["1"]),
+        flexWrap: "wrap" as const,
       },
       stats: {
         display: "flex",
-        gap: currentTheme.spacing["2"],
+        gap: getDynamicSpacing(currentTheme.spacing["1"]),
         alignItems: "center",
+        flexWrap: "wrap" as const,
+        fontSize:
+          screenWidth < 768
+            ? currentTheme.typography.fontSize.xs
+            : currentTheme.typography.fontSize.sm,
       },
       buttonGroup: {
         display: "flex",
-        gap: currentTheme.spacing["2"],
+        gap: getDynamicSpacing(currentTheme.spacing["1"]),
         alignItems: "center",
+        flexWrap: "wrap" as const,
       },
       addTodo: {
         display: "flex",
-        gap: currentTheme.spacing["2"],
-        marginBottom: currentTheme.spacing["2"],
-        padding: currentTheme.spacing["2"],
+        gap: getDynamicSpacing(currentTheme.spacing["2"]),
+        marginBottom: getDynamicSpacing(currentTheme.spacing["2"]),
+        padding: getDynamicSpacing(currentTheme.spacing["2"]),
         backgroundColor: currentTheme.colors.background.tertiary,
         borderRadius: currentTheme.borderRadius.md,
         border: `1px solid ${currentTheme.colors.border.default}`,
       },
       message: {
-        padding: currentTheme.spacing["2"],
-        marginBottom: currentTheme.spacing["2"],
+        padding: getDynamicSpacing(currentTheme.spacing["2"]),
+        marginBottom: getDynamicSpacing(currentTheme.spacing["2"]),
         backgroundColor: currentTheme.colors.background.tertiary,
         border: `1px solid ${currentTheme.colors.border.default}`,
         borderRadius: currentTheme.borderRadius.md,
@@ -224,45 +271,64 @@ const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
       },
       emptyState: {
         textAlign: "center" as const,
-        padding: currentTheme.spacing["4"],
+        padding: getDynamicSpacing(currentTheme.spacing["4"]),
         color: currentTheme.colors.text.secondary,
         fontSize: currentTheme.typography.fontSize.lg,
       },
       dateGroup: {
-        marginBottom: currentTheme.spacing["4"],
+        marginBottom: getDynamicSpacing(currentTheme.spacing["4"]),
         display: "flex",
         backgroundColor: currentTheme.colors.background.primary,
+        flexDirection: isMobile ? ("column" as const) : ("row" as const),
+        gap: isMobile ? getDynamicSpacing(currentTheme.spacing["2"]) : 0,
       },
       dateHeader: {
         fontSize: currentTheme.typography.fontSize.sm,
         fontWeight: currentTheme.typography.fontWeight.medium,
         color: currentTheme.colors.text.secondary,
-        minWidth: "60px",
-        padding: `${currentTheme.spacing["3"]} ${currentTheme.spacing["2"]}`,
-        textAlign: "center" as const,
-        height: "40px",
+        minWidth: isMobile ? "auto" : "60px",
+        width: isMobile ? "auto" : "60px",
+        padding: isMobile
+          ? `${getDynamicSpacing(
+              currentTheme.spacing["1"]
+            )} ${getDynamicSpacing(currentTheme.spacing["2"])}`
+          : `${getDynamicSpacing(
+              currentTheme.spacing["3"]
+            )} ${getDynamicSpacing(currentTheme.spacing["2"])}`,
+        textAlign: isMobile ? ("left" as const) : ("center" as const),
+        height: isMobile ? "auto" : "40px",
         display: "flex",
         alignItems: "center",
-        justifyContent: "center",
+        justifyContent: isMobile ? "flex-start" : "center",
+        backgroundColor: isMobile
+          ? currentTheme.colors.background.secondary
+          : "transparent",
+        borderRadius: isMobile ? currentTheme.borderRadius.sm : 0,
+        border: isMobile
+          ? `1px solid ${currentTheme.colors.border.muted}`
+          : "none",
       },
       contentSection: {
         flex: 1,
         backgroundColor: currentTheme.colors.background.primary,
+        paddingLeft: isMobile
+          ? 0
+          : getDynamicSpacing(currentTheme.spacing["2"]),
       },
       dateGroupDivider: {
         height: "1px",
         backgroundColor: `${currentTheme.colors.border.default}70`,
-        margin: `${currentTheme.spacing["4"]} 0`,
+        margin: `${getDynamicSpacing(currentTheme.spacing["4"])} 0`,
       },
     }),
-    [currentTheme]
+    [currentTheme, isMobile, screenWidth]
   );
 
   return (
     <div style={styles.container}>
       {/* 헤더 */}
       <div style={styles.header}>
-        <div>
+        <div style={styles.headerLeft}>
           <h2
             style={{
               margin: 0,
@@ -279,7 +345,9 @@ const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
                   fontSize: currentTheme.typography.fontSize.xs,
                   color: currentTheme.colors.text.secondary,
                   borderBottom: `1px solid ${currentTheme.colors.border.default}`,
-                  padding: `${currentTheme.spacing["1"]} ${currentTheme.spacing["2"]}`,
+                  padding: `${getDynamicSpacing(
+                    currentTheme.spacing["1"]
+                  )} ${getDynamicSpacing(currentTheme.spacing["2"])}`,
                   cursor: "default",
                 }}
               >
@@ -290,7 +358,9 @@ const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
                   fontSize: currentTheme.typography.fontSize.xs,
                   color: currentTheme.colors.text.secondary,
                   borderBottom: `1px solid ${currentTheme.colors.border.default}`,
-                  padding: `${currentTheme.spacing["1"]} ${currentTheme.spacing["2"]}`,
+                  padding: `${getDynamicSpacing(
+                    currentTheme.spacing["1"]
+                  )} ${getDynamicSpacing(currentTheme.spacing["2"])}`,
                   cursor: "default",
                 }}
               >
@@ -300,8 +370,8 @@ const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
           )}
         </div>
 
-        {/* 액션 버튼들 */}
-        <div style={styles.buttonGroup}>
+        {/* 액션 버튼들 - 가로로 일직선상 배치 */}
+        <div style={styles.headerRight}>
           {showAddButton && (
             <Button
               variant="primary"
@@ -355,7 +425,7 @@ const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
             value={newTodoTitle}
             onChange={(e) => setNewTodoTitle(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") handleAddTodo();
+              if (e.key === "Enter") handleAddTodo(e);
               if (e.key === "Escape") {
                 setNewTodoTitle("");
                 setIsAdding(false);
@@ -406,7 +476,7 @@ const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
                       : "none",
                   paddingBottom:
                     groupIndex === groupedTodos.length - 1
-                      ? currentTheme.spacing["4"]
+                      ? getDynamicSpacing(currentTheme.spacing["4"])
                       : 0,
                 }}
               >

@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui";
 import { useTheme } from "@/contexts/ThemeContext";
+import { EditIcon, AddIcon, CopyIcon, DeleteIcon } from "./icons/ActionIcons";
 
 interface TodoItemActionsProps {
   isEditing: boolean;
@@ -22,6 +23,7 @@ const TodoItemActions: React.FC<TodoItemActionsProps> = ({
   maxLevel = 2,
 }) => {
   const { currentTheme } = useTheme();
+  const [hoveredButton, setHoveredButton] = useState<string | null>(null);
 
   // 최대 계층 레벨에 도달했는지 확인
   const canAddChild = level < maxLevel;
@@ -47,7 +49,21 @@ const TodoItemActions: React.FC<TodoItemActionsProps> = ({
     border: `1px solid ${currentTheme.colors.border.muted}`,
     borderRadius: currentTheme.borderRadius.sm,
     transition: `all ${currentTheme.animation.duration.fast} ${currentTheme.animation.easing.default}`,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
   };
+
+  const buttonHoverStyle = {
+    ...buttonStyle,
+    backgroundColor: currentTheme.colors.background.secondary,
+    border: `1px solid ${currentTheme.colors.border.default}`,
+    transform: "translateY(-1px)",
+    boxShadow: `0 2px 4px rgba(0, 0, 0, 0.1)`,
+  };
+
+  const iconColor = currentTheme.colors.text.secondary;
 
   return (
     <div style={buttonGroupStyles}>
@@ -58,10 +74,12 @@ const TodoItemActions: React.FC<TodoItemActionsProps> = ({
           e.stopPropagation();
           onEdit();
         }}
-        style={buttonStyle}
+        style={hoveredButton === "edit" ? buttonHoverStyle : buttonStyle}
+        onMouseEnter={() => setHoveredButton("edit")}
+        onMouseLeave={() => setHoveredButton(null)}
         aria-label="편집"
       >
-        ✏️
+        <EditIcon size={14} color={iconColor} />
       </Button>
       {canAddChild && (
         <Button
@@ -71,10 +89,12 @@ const TodoItemActions: React.FC<TodoItemActionsProps> = ({
             e.stopPropagation();
             onAddChild();
           }}
-          style={buttonStyle}
+          style={hoveredButton === "add" ? buttonHoverStyle : buttonStyle}
+          onMouseEnter={() => setHoveredButton("add")}
+          onMouseLeave={() => setHoveredButton(null)}
           aria-label="하위 항목 추가"
         >
-          ➕
+          <AddIcon size={14} color={iconColor} />
         </Button>
       )}
       <Button
@@ -84,10 +104,12 @@ const TodoItemActions: React.FC<TodoItemActionsProps> = ({
           e.stopPropagation();
           onCopy();
         }}
-        style={buttonStyle}
+        style={hoveredButton === "copy" ? buttonHoverStyle : buttonStyle}
+        onMouseEnter={() => setHoveredButton("copy")}
+        onMouseLeave={() => setHoveredButton(null)}
         aria-label="복사"
       >
-        📋
+        <CopyIcon size={14} color={iconColor} />
       </Button>
       <Button
         variant="ghost"
@@ -96,10 +118,12 @@ const TodoItemActions: React.FC<TodoItemActionsProps> = ({
           e.stopPropagation();
           onDelete();
         }}
-        style={buttonStyle}
+        style={hoveredButton === "delete" ? buttonHoverStyle : buttonStyle}
+        onMouseEnter={() => setHoveredButton("delete")}
+        onMouseLeave={() => setHoveredButton(null)}
         aria-label="삭제"
       >
-        🗑️
+        <DeleteIcon size={14} color={iconColor} />
       </Button>
     </div>
   );

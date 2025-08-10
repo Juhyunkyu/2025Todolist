@@ -2,66 +2,33 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  /* Linear App Theme Colors - JSON에서 가져온 정확한 값들 */
-  --brand: #5E6AD2;
-  --brand-hover: #4C5BC7;
-  --brand-active: #3A4AB3;
-  
-  --bg-primary: #000000;
-  --bg-secondary: #0D0E10;
-  --bg-tertiary: #1A1B1E;
-  --bg-surface: #242529;
-  --bg-elevated: #2E2F33;
-  
-  --text-primary: #FFFFFF;
-  --text-secondary: #B4B4B4;
-  --text-tertiary: #8C8C8C;
-  --text-muted: #666666;
-  --text-inverse: #000000;
-  
-  --border-default: #2E2F33;
-  --border-muted: #1A1B1E;
-  --border-accent: #5E6AD2;
-  
-  --status-success: #00C853;
-  --status-warning: #FF9800;
-  --status-error: #F44336;
-  --status-info: #2196F3;
-  
-  --accent-purple: #9C27B0;
-  
-  /* Animation durations - JSON에서 가져온 값들 */
-  --duration-fast: 150ms;
-  --duration-normal: 300ms;
-  --duration-slow: 500ms;
-  
-  /* Layout - JSON에서 가져온 값들 */
-  --container-max-width: 1200px;
-  --sidebar-width: 240px;
-  --sidebar-collapsed-width: 60px;
-  --header-height: 60px;
+/* 로딩 스피너 애니메이션 */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
-* {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
+.animate-spin {
+  animation: spin 1s linear infinite;
 }
 
-html {
-  scroll-behavior: smooth;
-}
-
+/* 기본 스타일 */
 body {
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  font-family: var(--font-inter), 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 14px;
-  line-height: 1.5;
-  letter-spacing: -0.01em;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
 }
 
 /* Selection - JSON 테마 색상 사용 */
