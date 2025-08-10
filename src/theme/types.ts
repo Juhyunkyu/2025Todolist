@@ -43,7 +43,7 @@ export interface ThemeTypography {
   };
   fontSize: Record<string, string>;
   fontWeight: Record<string, number>;
-  lineHeight: Record<string, string>;
+  lineHeight: Record<string, number>;
   letterSpacing: Record<string, string>;
 }
 
@@ -92,19 +92,11 @@ export interface ThemeComponents {
     primary: {
       backgroundColor: string;
       color: string;
-      border: string;
       borderRadius: string;
       padding: string;
       fontSize: string;
       fontWeight: number;
-      lineHeight: string;
       transition: string;
-      hover: {
-        backgroundColor: string;
-      };
-      active: {
-        backgroundColor: string;
-      };
     };
     secondary: {
       backgroundColor: string;
@@ -114,11 +106,7 @@ export interface ThemeComponents {
       padding: string;
       fontSize: string;
       fontWeight: number;
-      lineHeight: string;
       transition: string;
-      hover: {
-        backgroundColor: string;
-      };
     };
   };
   input: {
@@ -128,11 +116,7 @@ export interface ThemeComponents {
     padding: string;
     fontSize: string;
     color: string;
-    placeholderColor: string;
-    focus: {
-      borderColor: string;
-      boxShadow: string;
-    };
+    placeholder: string;
   };
   card: {
     backgroundColor: string;
@@ -140,6 +124,12 @@ export interface ThemeComponents {
     borderRadius: string;
     padding: string;
     boxShadow: string;
+  };
+  navigation: {
+    backgroundColor: string;
+    borderRight: string;
+    itemHover: string;
+    itemActive: string;
   };
 }
 

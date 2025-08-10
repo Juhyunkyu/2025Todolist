@@ -1,6 +1,9 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 
+// ========================
 // 데이터베이스 스키마 정의
+// ========================
+
 interface TodoPlannerDB extends DBSchema {
   todos: {
     key: string;
@@ -96,7 +99,41 @@ interface TodoPlannerDB extends DBSchema {
   };
 }
 
+// ========================
+// 공통 유틸리티 함수들
+// ========================
+
+// 공통 필드 생성 (중복 코드 제거)
+function createCommonFields<T extends { id?: string; createdAt?: string; updatedAt?: string }>(
+  data: Omit<T, 'id' | 'createdAt' | 'updatedAt'>
+): T {
+  const now = new Date().toISOString();
+  const id = crypto.randomUUID();
+  
+  return {
+    ...data,
+    id,
+    createdAt: now,
+    updatedAt: now,
+  } as T;
+}
+
+// 트랜잭션 래퍼 (Supabase 연동 시 유용)
+async function withTransaction<T>(
+  operation: () => Promise<T>
+): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    console.error('Database operation failed:', error);
+    throw error;
+  }
+}
+
+// ========================
 // 데이터베이스 인스턴스
+// ========================
+
 let db: IDBPDatabase<TodoPlannerDB> | null = null;
 
 // 데이터베이스 초기화
@@ -145,272 +182,288 @@ export async function getDB(): Promise<IDBPDatabase<TodoPlannerDB>> {
   return await initDB();
 }
 
+// ========================
+// 개선된 CRUD 함수들
+// ========================
+
 // Todos CRUD
 export async function addTodo(todo: Omit<TodoPlannerDB['todos']['value'], 'id' | 'createdAt' | 'updatedAt'>) {
-  const db = await getDB();
-  const now = new Date().toISOString();
-  const id = crypto.randomUUID();
-  
-  const newTodo: TodoPlannerDB['todos']['value'] = {
-    ...todo,
-    id,
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  await db.add('todos', newTodo);
-  return newTodo;
+  return await withTransaction(async () => {
+    const db = await getDB();
+    const newTodo = createCommonFields<TodoPlannerDB['todos']['value']>(todo);
+    await db.add('todos', newTodo);
+    return newTodo;
+  });
 }
 
 export async function getTodos(): Promise<TodoPlannerDB['todos']['value'][]> {
-  const db = await getDB();
-  return await db.getAll('todos');
+  return await withTransaction(async () => {
+    const db = await getDB();
+    return await db.getAll('todos');
+  });
 }
 
 export async function getTodoById(id: string): Promise<TodoPlannerDB['todos']['value'] | undefined> {
-  const db = await getDB();
-  return await db.get('todos', id);
+  return await withTransaction(async () => {
+    const db = await getDB();
+    return await db.get('todos', id);
+  });
 }
 
 export async function updateTodo(id: string, updates: Partial<TodoPlannerDB['todos']['value']>) {
-  const db = await getDB();
-  const todo = await db.get('todos', id);
-  if (!todo) throw new Error('Todo not found');
+  return await withTransaction(async () => {
+    const db = await getDB();
+    const todo = await db.get('todos', id);
+    if (!todo) throw new Error('Todo not found');
 
-  const updatedTodo: TodoPlannerDB['todos']['value'] = {
-    ...todo,
-    ...updates,
-    updatedAt: new Date().toISOString(),
-  };
+    const updatedTodo: TodoPlannerDB['todos']['value'] = {
+      ...todo,
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
 
-  await db.put('todos', updatedTodo);
-  return updatedTodo;
+    await db.put('todos', updatedTodo);
+    return updatedTodo;
+  });
 }
 
 export async function deleteTodo(id: string) {
-  const db = await getDB();
-  await db.delete('todos', id);
+  return await withTransaction(async () => {
+    const db = await getDB();
+    await db.delete('todos', id);
+  });
 }
 
 export async function toggleTodo(id: string) {
-  const todo = await getTodoById(id);
-  if (!todo) throw new Error('Todo not found');
-
-  return await updateTodo(id, { isDone: !todo.isDone });
+  return await withTransaction(async () => {
+    const todo = await getTodoById(id);
+    if (!todo) throw new Error('Todo not found');
+    return await updateTodo(id, { isDone: !todo.isDone });
+  });
 }
 
 // Notes CRUD
 export async function addNote(note: Omit<TodoPlannerDB['notes']['value'], 'id' | 'createdAt' | 'updatedAt'>) {
-  const db = await getDB();
-  const now = new Date().toISOString();
-  const id = crypto.randomUUID();
-  
-  const newNote: TodoPlannerDB['notes']['value'] = {
-    ...note,
-    id,
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  await db.add('notes', newNote);
-  return newNote;
+  return await withTransaction(async () => {
+    const db = await getDB();
+    const newNote = createCommonFields<TodoPlannerDB['notes']['value']>(note);
+    await db.add('notes', newNote);
+    return newNote;
+  });
 }
 
 export async function getNotes(): Promise<TodoPlannerDB['notes']['value'][]> {
-  const db = await getDB();
-  return await db.getAll('notes');
+  return await withTransaction(async () => {
+    const db = await getDB();
+    return await db.getAll('notes');
+  });
 }
 
 export async function updateNote(id: string, updates: Partial<TodoPlannerDB['notes']['value']>) {
-  const db = await getDB();
-  const note = await db.get('notes', id);
-  if (!note) throw new Error('Note not found');
+  return await withTransaction(async () => {
+    const db = await getDB();
+    const note = await db.get('notes', id);
+    if (!note) throw new Error('Note not found');
 
-  const updatedNote: TodoPlannerDB['notes']['value'] = {
-    ...note,
-    ...updates,
-    updatedAt: new Date().toISOString(),
-  };
+    const updatedNote: TodoPlannerDB['notes']['value'] = {
+      ...note,
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
 
-  await db.put('notes', updatedNote);
-  return updatedNote;
+    await db.put('notes', updatedNote);
+    return updatedNote;
+  });
 }
 
 export async function deleteNote(id: string) {
-  const db = await getDB();
-  await db.delete('notes', id);
+  return await withTransaction(async () => {
+    const db = await getDB();
+    await db.delete('notes', id);
+  });
 }
 
 // Birthdays CRUD
 export async function addBirthday(birthday: Omit<TodoPlannerDB['birthdays']['value'], 'id' | 'createdAt' | 'updatedAt'>) {
-  const db = await getDB();
-  const now = new Date().toISOString();
-  const id = crypto.randomUUID();
-  
-  const newBirthday: TodoPlannerDB['birthdays']['value'] = {
-    ...birthday,
-    id,
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  await db.add('birthdays', newBirthday);
-  return newBirthday;
+  return await withTransaction(async () => {
+    const db = await getDB();
+    const newBirthday = createCommonFields<TodoPlannerDB['birthdays']['value']>(birthday);
+    await db.add('birthdays', newBirthday);
+    return newBirthday;
+  });
 }
 
 export async function getBirthdays(): Promise<TodoPlannerDB['birthdays']['value'][]> {
-  const db = await getDB();
-  return await db.getAll('birthdays');
+  return await withTransaction(async () => {
+    const db = await getDB();
+    return await db.getAll('birthdays');
+  });
 }
 
 export async function updateBirthday(id: string, updates: Partial<TodoPlannerDB['birthdays']['value']>) {
-  const db = await getDB();
-  const birthday = await db.get('birthdays', id);
-  if (!birthday) throw new Error('Birthday not found');
+  return await withTransaction(async () => {
+    const db = await getDB();
+    const birthday = await db.get('birthdays', id);
+    if (!birthday) throw new Error('Birthday not found');
 
-  const updatedBirthday: TodoPlannerDB['birthdays']['value'] = {
-    ...birthday,
-    ...updates,
-    updatedAt: new Date().toISOString(),
-  };
+    const updatedBirthday: TodoPlannerDB['birthdays']['value'] = {
+      ...birthday,
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
 
-  await db.put('birthdays', updatedBirthday);
-  return updatedBirthday;
+    await db.put('birthdays', updatedBirthday);
+    return updatedBirthday;
+  });
 }
 
 export async function deleteBirthday(id: string) {
-  const db = await getDB();
-  await db.delete('birthdays', id);
+  return await withTransaction(async () => {
+    const db = await getDB();
+    await db.delete('birthdays', id);
+  });
 }
 
 // Templates CRUD
 export async function addTemplate(template: Omit<TodoPlannerDB['templates']['value'], 'id' | 'createdAt' | 'updatedAt'>) {
-  const db = await getDB();
-  const now = new Date().toISOString();
-  const id = crypto.randomUUID();
-  
-  const newTemplate: TodoPlannerDB['templates']['value'] = {
-    ...template,
-    id,
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  await db.add('templates', newTemplate);
-  return newTemplate;
+  return await withTransaction(async () => {
+    const db = await getDB();
+    const newTemplate = createCommonFields<TodoPlannerDB['templates']['value']>(template);
+    await db.add('templates', newTemplate);
+    return newTemplate;
+  });
 }
 
 export async function getTemplates(): Promise<TodoPlannerDB['templates']['value'][]> {
-  const db = await getDB();
-  return await db.getAll('templates');
+  return await withTransaction(async () => {
+    const db = await getDB();
+    return await db.getAll('templates');
+  });
 }
 
 export async function updateTemplate(id: string, updates: Partial<TodoPlannerDB['templates']['value']>) {
-  const db = await getDB();
-  const template = await db.get('templates', id);
-  if (!template) throw new Error('Template not found');
+  return await withTransaction(async () => {
+    const db = await getDB();
+    const template = await db.get('templates', id);
+    if (!template) throw new Error('Template not found');
 
-  const updatedTemplate: TodoPlannerDB['templates']['value'] = {
-    ...template,
-    ...updates,
-    updatedAt: new Date().toISOString(),
-  };
+    const updatedTemplate: TodoPlannerDB['templates']['value'] = {
+      ...template,
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
 
-  await db.put('templates', updatedTemplate);
-  return updatedTemplate;
+    await db.put('templates', updatedTemplate);
+    return updatedTemplate;
+  });
 }
 
 export async function deleteTemplate(id: string) {
-  const db = await getDB();
-  await db.delete('templates', id);
+  return await withTransaction(async () => {
+    const db = await getDB();
+    await db.delete('templates', id);
+  });
 }
 
 // Settings
 export async function getSettings(): Promise<TodoPlannerDB['settings']['value']> {
-  const db = await getDB();
-  const settings = await db.get('settings', 'default');
-  
-  if (!settings) {
-    // 기본 설정 반환
-    const defaultSettings: TodoPlannerDB['settings']['value'] = {
-      theme: 'dark',
-      notifications: true,
-      autoBackup: false,
-    };
-    await db.add('settings', defaultSettings);
-    return defaultSettings;
-  }
-  
-  return settings;
+  return await withTransaction(async () => {
+    const db = await getDB();
+    const settings = await db.get('settings', 'default');
+    
+    if (!settings) {
+      // 기본 설정 반환
+      const defaultSettings: TodoPlannerDB['settings']['value'] = {
+        theme: 'dark',
+        notifications: true,
+        autoBackup: false,
+      };
+      await db.add('settings', defaultSettings);
+      return defaultSettings;
+    }
+    
+    return settings;
+  });
 }
 
 export async function updateSettings(updates: Partial<TodoPlannerDB['settings']['value']>) {
-  const db = await getDB();
-  const settings = await db.get('settings', 'default');
-  
-  const updatedSettings: TodoPlannerDB['settings']['value'] = {
-    theme: 'dark',
-    notifications: true,
-    autoBackup: false,
-    ...settings,
-    ...updates,
-  };
+  return await withTransaction(async () => {
+    const db = await getDB();
+    const settings = await db.get('settings', 'default');
+    
+    const updatedSettings: TodoPlannerDB['settings']['value'] = {
+      theme: 'dark',
+      notifications: true,
+      autoBackup: false,
+      ...settings,
+      ...updates,
+    };
 
-  await db.put('settings', updatedSettings);
-  return updatedSettings;
+    await db.put('settings', updatedSettings);
+    return updatedSettings;
+  });
 }
 
+// ========================
 // 유틸리티 함수들
+// ========================
+
 export async function clearAllData() {
-  const db = await getDB();
-  await db.clear('todos');
-  await db.clear('notes');
-  await db.clear('birthdays');
-  await db.clear('templates');
-  await db.clear('settings');
+  return await withTransaction(async () => {
+    const db = await getDB();
+    await db.clear('todos');
+    await db.clear('notes');
+    await db.clear('birthdays');
+    await db.clear('templates');
+    await db.clear('settings');
+  });
 }
 
 export async function exportData() {
-  const todos = await getTodos();
-  const notes = await getNotes();
-  const birthdays = await getBirthdays();
-  const templates = await getTemplates();
-  const settings = await getSettings();
+  return await withTransaction(async () => {
+    const todos = await getTodos();
+    const notes = await getNotes();
+    const birthdays = await getBirthdays();
+    const templates = await getTemplates();
+    const settings = await getSettings();
 
-  return {
-    todos,
-    notes,
-    birthdays,
-    templates,
-    settings,
-    exportedAt: new Date().toISOString(),
-  };
+    return {
+      todos,
+      notes,
+      birthdays,
+      templates,
+      settings,
+      exportedAt: new Date().toISOString(),
+    };
+  });
 }
 
 export async function importData(data: Awaited<ReturnType<typeof exportData>>) {
-  const db = await getDB();
-  
-  // 기존 데이터 삭제
-  await clearAllData();
-  
-  // 새 데이터 추가
-  for (const todo of data.todos) {
-    await db.add('todos', todo);
-  }
-  
-  for (const note of data.notes) {
-    await db.add('notes', note);
-  }
-  
-  for (const birthday of data.birthdays) {
-    await db.add('birthdays', birthday);
-  }
-  
-  for (const template of data.templates) {
-    await db.add('templates', template);
-  }
-  
-  await db.put('settings', data.settings);
+  return await withTransaction(async () => {
+    const db = await getDB();
+    
+    // 기존 데이터 삭제
+    await clearAllData();
+    
+    // 새 데이터 추가
+    for (const todo of data.todos) {
+      await db.add('todos', todo);
+    }
+    
+    for (const note of data.notes) {
+      await db.add('notes', note);
+    }
+    
+    for (const birthday of data.birthdays) {
+      await db.add('birthdays', birthday);
+    }
+    
+    for (const template of data.templates) {
+      await db.add('templates', template);
+    }
+    
+    await db.put('settings', data.settings);
+  });
 }
 
 // ========================
@@ -418,113 +471,128 @@ export async function importData(data: Awaited<ReturnType<typeof exportData>>) {
 // ========================
 
 export async function addHierarchicalTodo(todo: Omit<TodoPlannerDB['hierarchicalTodos']['value'], 'id' | 'createdAt' | 'updatedAt' | 'children'>) {
-  const db = await getDB();
-  const now = new Date().toISOString();
-  const id = crypto.randomUUID();
-  
-  const newTodo: TodoPlannerDB['hierarchicalTodos']['value'] = {
-    ...todo,
-    id,
-    children: [],
-    createdAt: now,
-    updatedAt: now,
-  };
+  return await withTransaction(async () => {
+    const db = await getDB();
+    const newTodo = createCommonFields<TodoPlannerDB['hierarchicalTodos']['value']>({
+      ...todo,
+      children: [],
+    });
+    
+    await db.add('hierarchicalTodos', newTodo);
 
-  await db.add('hierarchicalTodos', newTodo);
+    // 부모가 있다면 부모의 children 배열에 추가
+    if (todo.parentId) {
+      await addChildToParent(todo.parentId, newTodo.id);
+    }
 
-  // 부모가 있다면 부모의 children 배열에 추가
-  if (todo.parentId) {
-    await addChildToParent(todo.parentId, id);
-  }
-
-  return newTodo;
+    return newTodo;
+  });
 }
 
 export async function getHierarchicalTodos(): Promise<TodoPlannerDB['hierarchicalTodos']['value'][]> {
-  const db = await getDB();
-  return await db.getAll('hierarchicalTodos');
+  return await withTransaction(async () => {
+    const db = await getDB();
+    return await db.getAll('hierarchicalTodos');
+  });
 }
 
 export async function getHierarchicalTodoById(id: string): Promise<TodoPlannerDB['hierarchicalTodos']['value'] | undefined> {
-  const db = await getDB();
-  return await db.get('hierarchicalTodos', id);
+  return await withTransaction(async () => {
+    const db = await getDB();
+    return await db.get('hierarchicalTodos', id);
+  });
 }
 
+// 성능 최적화된 부모별 조회
 export async function getHierarchicalTodosByParent(parentId?: string): Promise<TodoPlannerDB['hierarchicalTodos']['value'][]> {
-  const db = await getDB();
-  if (parentId === undefined) {
-    // 최상위 항목들 (parentId가 없는 것들)
-    const allTodos = await db.getAll('hierarchicalTodos');
-    return allTodos.filter(todo => !todo.parentId).sort((a, b) => a.order - b.order);
-  }
-  
-  const todos = await db.getAllFromIndex('hierarchicalTodos', 'by-parent', parentId);
-  return todos.sort((a, b) => a.order - b.order);
+  return await withTransaction(async () => {
+    const db = await getDB();
+    if (parentId === undefined) {
+      // 최상위 항목들만 조회 (인덱스 활용)
+      const allTodos = await db.getAll('hierarchicalTodos');
+      return allTodos.filter(todo => !todo.parentId).sort((a, b) => a.order - b.order);
+    }
+    
+    // 인덱스를 활용한 효율적인 조회
+    const todos = await db.getAllFromIndex('hierarchicalTodos', 'by-parent', parentId);
+    return todos.sort((a, b) => a.order - b.order);
+  });
 }
 
 export async function updateHierarchicalTodo(id: string, updates: Partial<TodoPlannerDB['hierarchicalTodos']['value']>) {
-  const db = await getDB();
-  const todo = await db.get('hierarchicalTodos', id);
-  if (!todo) throw new Error('Hierarchical Todo not found');
+  return await withTransaction(async () => {
+    const db = await getDB();
+    const todo = await db.get('hierarchicalTodos', id);
+    if (!todo) throw new Error('Hierarchical Todo not found');
 
-  const updatedTodo: TodoPlannerDB['hierarchicalTodos']['value'] = {
-    ...todo,
-    ...updates,
-    updatedAt: new Date().toISOString(),
-  };
+    const updatedTodo: TodoPlannerDB['hierarchicalTodos']['value'] = {
+      ...todo,
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
 
-  await db.put('hierarchicalTodos', updatedTodo);
-  return updatedTodo;
+    await db.put('hierarchicalTodos', updatedTodo);
+    return updatedTodo;
+  });
 }
 
 export async function deleteHierarchicalTodo(id: string) {
-  const db = await getDB();
-  const todo = await db.get('hierarchicalTodos', id);
-  if (!todo) throw new Error('Hierarchical Todo not found');
+  return await withTransaction(async () => {
+    const db = await getDB();
+    const todo = await db.get('hierarchicalTodos', id);
+    if (!todo) throw new Error('Hierarchical Todo not found');
 
-  // 자식 항목들도 재귀적으로 삭제
-  for (const childId of todo.children) {
-    await deleteHierarchicalTodo(childId);
-  }
+    // 자식 항목들도 재귀적으로 삭제
+    for (const childId of todo.children) {
+      await deleteHierarchicalTodo(childId);
+    }
 
-  // 부모의 children 배열에서 제거
-  if (todo.parentId) {
-    await removeChildFromParent(todo.parentId, id);
-  }
+    // 부모의 children 배열에서 제거
+    if (todo.parentId) {
+      await removeChildFromParent(todo.parentId, id);
+    }
 
-  await db.delete('hierarchicalTodos', id);
+    await db.delete('hierarchicalTodos', id);
+  });
 }
 
 export async function toggleHierarchicalTodo(id: string) {
-  const todo = await getHierarchicalTodoById(id);
-  if (!todo) throw new Error('Hierarchical Todo not found');
+  return await withTransaction(async () => {
+    const todo = await getHierarchicalTodoById(id);
+    if (!todo) throw new Error('Hierarchical Todo not found');
 
-  const newIsDone = !todo.isDone;
-  await updateHierarchicalTodo(id, { isDone: newIsDone });
+    const newIsDone = !todo.isDone;
+    await updateHierarchicalTodo(id, { isDone: newIsDone });
 
-  // 자식들의 상태도 동기화
-  if (todo.children.length > 0) {
-    for (const childId of todo.children) {
-      await updateHierarchicalTodo(childId, { isDone: newIsDone });
+    // 자식들의 상태도 동기화
+    if (todo.children.length > 0) {
+      for (const childId of todo.children) {
+        await updateHierarchicalTodo(childId, { isDone: newIsDone });
+      }
     }
-  }
 
-  // 부모의 상태 업데이트 (모든 자식이 완료되면 부모도 완료)
-  if (todo.parentId) {
-    await updateParentStatus(todo.parentId);
-  }
+    // 부모의 상태 업데이트 (모든 자식이 완료되면 부모도 완료)
+    if (todo.parentId) {
+      await updateParentStatus(todo.parentId);
+    }
 
-  return await getHierarchicalTodoById(id);
+    return await getHierarchicalTodoById(id);
+  });
 }
 
 export async function toggleHierarchicalTodoExpansion(id: string) {
-  const todo = await getHierarchicalTodoById(id);
-  if (!todo) throw new Error('Hierarchical Todo not found');
+  return await withTransaction(async () => {
+    const todo = await getHierarchicalTodoById(id);
+    if (!todo) throw new Error('Hierarchical Todo not found');
 
-  return await updateHierarchicalTodo(id, { isExpanded: !todo.isExpanded });
+    return await updateHierarchicalTodo(id, { isExpanded: !todo.isExpanded });
+  });
 }
 
+// ========================
 // Helper 함수들
+// ========================
+
 async function addChildToParent(parentId: string, childId: string) {
   const parent = await getHierarchicalTodoById(parentId);
   if (!parent) throw new Error('Parent todo not found');
@@ -569,186 +637,261 @@ async function updateParentStatus(parentId: string) {
   }
 }
 
-// 계층적 할일 복사 (마크다운 형식) - 전체
+// ========================
+// 마크다운 복사 함수들
+// ========================
+
 export async function copyHierarchicalTodosAsMarkdown(): Promise<string> {
-  const rootTodos = await getHierarchicalTodosByParent();
-  
-  const formatTodo = async (todo: TodoPlannerDB['hierarchicalTodos']['value'], level: number = 0): Promise<string> => {
-    const indent = '  '.repeat(level);
-    const checkbox = todo.isDone ? '☑️' : '⬜';
-    let result = `${indent}- ${checkbox} ${todo.title}\n`;
+  return await withTransaction(async () => {
+    const rootTodos = await getHierarchicalTodosByParent();
     
-    if (todo.children.length > 0) {
-      for (const childId of todo.children) {
-        const child = await getHierarchicalTodoById(childId);
-        if (child) {
-          result += await formatTodo(child, level + 1);
+    const formatTodo = async (todo: TodoPlannerDB['hierarchicalTodos']['value'], level: number = 0): Promise<string> => {
+      const indent = '  '.repeat(level);
+      const checkbox = todo.isDone ? '☑️' : '⬜';
+      let result = `${indent}- ${checkbox} ${todo.title}\n`;
+      
+      if (todo.children.length > 0) {
+        for (const childId of todo.children) {
+          const child = await getHierarchicalTodoById(childId);
+          if (child) {
+            result += await formatTodo(child, level + 1);
+          }
         }
       }
+      
+      return result;
+    };
+
+    let markdown = '# 할일 목록\n\n';
+    for (const todo of rootTodos) {
+      markdown += await formatTodo(todo);
     }
     
-    return result;
-  };
-
-  let markdown = '# 할일 목록\n\n';
-  for (const todo of rootTodos) {
-    markdown += await formatTodo(todo);
-  }
-  
-  return markdown;
+    return markdown;
+  });
 }
 
-// 개별 할일 복사 (마크다운 형식)
 export async function copySingleHierarchicalTodoAsMarkdown(todoId: string): Promise<string> {
-  const todo = await getHierarchicalTodoById(todoId);
-  if (!todo) throw new Error('Todo not found');
-  
-  const formatTodo = async (todo: TodoPlannerDB['hierarchicalTodos']['value'], level: number = 0): Promise<string> => {
-    const indent = '  '.repeat(level);
-    const checkbox = todo.isDone ? '☑️' : '⬜';
-    let result = `${indent}- ${checkbox} ${todo.title}\n`;
+  return await withTransaction(async () => {
+    const todo = await getHierarchicalTodoById(todoId);
+    if (!todo) throw new Error('Todo not found');
     
-    if (todo.children.length > 0) {
-      for (const childId of todo.children) {
-        const child = await getHierarchicalTodoById(childId);
-        if (child) {
-          result += await formatTodo(child, level + 1);
+    const formatTodo = async (todo: TodoPlannerDB['hierarchicalTodos']['value'], level: number = 0): Promise<string> => {
+      const indent = '  '.repeat(level);
+      const checkbox = todo.isDone ? '☑️' : '⬜';
+      let result = `${indent}- ${checkbox} ${todo.title}\n`;
+      
+      if (todo.children.length > 0) {
+        for (const childId of todo.children) {
+          const child = await getHierarchicalTodoById(childId);
+          if (child) {
+            result += await formatTodo(child, level + 1);
+          }
         }
       }
-    }
-    
-    return result;
-  };
+      
+      return result;
+    };
 
-  return await formatTodo(todo);
+    return await formatTodo(todo);
+  });
 }
 
-// 진행률 계산
+// ========================
+// 진행률 계산 함수
+// ========================
+
 export async function getHierarchicalTodoProgress(parentId?: string): Promise<{ completed: number; total: number; percentage: number }> {
-  const todos = await getHierarchicalTodosByParent(parentId);
-  
-  let completed = 0;
-  let total = 0;
-  
-  const countProgress = async (todo: TodoPlannerDB['hierarchicalTodos']['value']): Promise<{ completed: number; total: number }> => {
-    if (todo.children.length === 0) {
-      // 리프 노드만 카운트
-      return { completed: todo.isDone ? 1 : 0, total: 1 };
-    } else {
-      // 자식들의 진행률 합계
-      let childCompleted = 0;
-      let childTotal = 0;
-      
-      for (const childId of todo.children) {
-        const child = await getHierarchicalTodoById(childId);
-        if (child) {
-          const childProgress = await countProgress(child);
-          childCompleted += childProgress.completed;
-          childTotal += childProgress.total;
-        }
-      }
-      
-      return { completed: childCompleted, total: childTotal };
-    }
-  };
-  
-  for (const todo of todos) {
-    const progress = await countProgress(todo);
-    completed += progress.completed;
-    total += progress.total;
-  }
-  
-  const percentage = total === 0 ? 0 : Math.round((completed / total) * 100);
-  
-  return { completed, total, percentage };
-}
-
-// 순서 변경 함수들
-export async function reorderHierarchicalTodos(parentId: string | undefined, newOrder: string[]) {
-  const db = await getDB();
-  
-  // 각 항목의 order를 새로운 순서에 맞게 업데이트
-  for (let i = 0; i < newOrder.length; i++) {
-    const todoId = newOrder[i];
-    await updateHierarchicalTodo(todoId, { order: i });
-  }
-  
-  // 부모의 children 배열도 업데이트
-  if (parentId) {
-    await updateHierarchicalTodo(parentId, { children: newOrder });
-  }
-}
-
-// 키보드로 순서 변경 (위/아래로 이동)
-export async function moveHierarchicalTodo(todoId: string, direction: 'up' | 'down') {
-  const todo = await getHierarchicalTodoById(todoId);
-  if (!todo) throw new Error('Todo not found');
-  
-  // 같은 레벨의 형제 항목들 가져오기
-  const siblings = await getHierarchicalTodosByParent(todo.parentId);
-  const currentIndex = siblings.findIndex(sibling => sibling.id === todoId);
-  
-  if (currentIndex === -1) return false; // 항목을 찾을 수 없음
-  
-  let newIndex: number;
-  if (direction === 'up') {
-    newIndex = Math.max(0, currentIndex - 1);
-  } else {
-    newIndex = Math.min(siblings.length - 1, currentIndex + 1);
-  }
-  
-  if (newIndex === currentIndex) return false; // 이동할 곳이 없음
-  
-  // 배열에서 위치 바꾸기
-  const newOrder = [...siblings];
-  [newOrder[currentIndex], newOrder[newIndex]] = [newOrder[newIndex], newOrder[currentIndex]];
-  
-  // 새로운 순서로 저장
-  await reorderHierarchicalTodos(todo.parentId, newOrder.map(t => t.id));
-  
-  return true; // 성공적으로 이동
-}
-
-// 전체 펼치기/접기 함수 - 빠르고 깔끔한 버전
-export async function expandAllHierarchicalTodos(expand: boolean) {
-  // 재귀적으로 모든 할일 업데이트
-  async function updateAllTodos(parentId?: string): Promise<void> {
+  return await withTransaction(async () => {
     const todos = await getHierarchicalTodosByParent(parentId);
     
-    for (const todo of todos) {
-      // 현재 할일 업데이트
-      await updateHierarchicalTodo(todo.id, { 
-        isExpanded: expand,
-        updatedAt: new Date().toISOString()
-      });
-      
-      // 자식이 있으면 자식들도 업데이트
-      if (todo.children.length > 0) {
-        await updateAllTodos(todo.id);
+    let completed = 0;
+    let total = 0;
+    
+    const countProgress = async (todo: TodoPlannerDB['hierarchicalTodos']['value']): Promise<{ completed: number; total: number }> => {
+      if (todo.children.length === 0) {
+        // 리프 노드만 카운트
+        return { completed: todo.isDone ? 1 : 0, total: 1 };
+      } else {
+        // 자식들의 진행률 합계
+        let childCompleted = 0;
+        let childTotal = 0;
+        
+        for (const childId of todo.children) {
+          const child = await getHierarchicalTodoById(childId);
+          if (child) {
+            const childProgress = await countProgress(child);
+            childCompleted += childProgress.completed;
+            childTotal += childProgress.total;
+          }
+        }
+        
+        return { completed: childCompleted, total: childTotal };
       }
+    };
+    
+    for (const todo of todos) {
+      const progress = await countProgress(todo);
+      completed += progress.completed;
+      total += progress.total;
     }
-  }
-  
-  await updateAllTodos(); // 최상위부터 시작
+    
+    const percentage = total === 0 ? 0 : Math.round((completed / total) * 100);
+    
+    return { completed, total, percentage };
+  });
 }
 
-// 현재 전체가 펼쳐진 상태인지 확인하는 함수
-export async function checkAllExpanded() {
-  try {
-    const todos = await getHierarchicalTodos();
-    
-    // 자식이 있는 할일들만 확인 (자식이 없으면 펼치기/접기가 의미 없음)
-    const todosWithChildren = todos.filter(todo => todo.children && todo.children.length > 0);
-    
-    if (todosWithChildren.length === 0) {
-      return false; // 자식이 있는 할일이 없으면 false
+// ========================
+// 순서 변경 함수들
+// ========================
+
+export async function reorderHierarchicalTodos(parentId: string | undefined, newOrder: string[]) {
+  return await withTransaction(async () => {
+    // 각 항목의 order를 새로운 순서에 맞게 업데이트
+    for (let i = 0; i < newOrder.length; i++) {
+      const todoId = newOrder[i];
+      await updateHierarchicalTodo(todoId, { order: i });
     }
     
-    // 모든 자식이 있는 할일이 펼쳐져 있으면 true
-    return todosWithChildren.every(todo => todo.isExpanded);
+    // 부모의 children 배열도 업데이트
+    if (parentId) {
+      await updateHierarchicalTodo(parentId, { children: newOrder });
+    }
+  });
+}
+
+export async function moveHierarchicalTodo(todoId: string, direction: 'up' | 'down') {
+  return await withTransaction(async () => {
+    const todo = await getHierarchicalTodoById(todoId);
+    if (!todo) throw new Error('Todo not found');
+    
+    // 같은 레벨의 형제 항목들 가져오기
+    const siblings = await getHierarchicalTodosByParent(todo.parentId);
+    const currentIndex = siblings.findIndex(sibling => sibling.id === todoId);
+    
+    if (currentIndex === -1) return false; // 항목을 찾을 수 없음
+    
+    let newIndex: number;
+    if (direction === 'up') {
+      newIndex = Math.max(0, currentIndex - 1);
+    } else {
+      newIndex = Math.min(siblings.length - 1, currentIndex + 1);
+    }
+    
+    if (newIndex === currentIndex) return false; // 이동할 곳이 없음
+    
+    // 배열에서 위치 바꾸기
+    const newOrder = [...siblings];
+    [newOrder[currentIndex], newOrder[newIndex]] = [newOrder[newIndex], newOrder[currentIndex]];
+    
+    // 새로운 순서로 저장
+    await reorderHierarchicalTodos(todo.parentId, newOrder.map(t => t.id));
+    
+    return true; // 성공적으로 이동
+  });
+}
+
+// ========================
+// 펼치기/접기 함수들
+// ========================
+
+export async function expandAllHierarchicalTodos(expand: boolean) {
+  return await withTransaction(async () => {
+    // 재귀적으로 모든 할일 업데이트
+    async function updateAllTodos(parentId?: string): Promise<void> {
+      const todos = await getHierarchicalTodosByParent(parentId);
+      
+      for (const todo of todos) {
+        // 현재 할일 업데이트
+        await updateHierarchicalTodo(todo.id, { 
+          isExpanded: expand,
+          updatedAt: new Date().toISOString()
+        });
+        
+        // 자식이 있으면 자식들도 업데이트
+        if (todo.children.length > 0) {
+          await updateAllTodos(todo.id);
+        }
+      }
+    }
+    
+    await updateAllTodos(); // 최상위부터 시작
+  });
+}
+
+export async function checkAllExpanded() {
+  return await withTransaction(async () => {
+    try {
+      const todos = await getHierarchicalTodos();
+      
+      // 자식이 있는 할일들만 확인 (자식이 없으면 펼치기/접기가 의미 없음)
+      const todosWithChildren = todos.filter(todo => todo.children && todo.children.length > 0);
+      
+      if (todosWithChildren.length === 0) {
+        return false; // 자식이 있는 할일이 없으면 false
+      }
+      
+      // 모든 자식이 있는 할일이 펼쳐져 있으면 true
+      return todosWithChildren.every(todo => todo.isExpanded);
+    } catch (error) {
+      console.error('checkAllExpanded error:', error);
+      return false; // 에러 시 기본값 반환
+    }
+  });
+}
+
+// ========================
+// Supabase 연동을 위한 준비 함수들
+// ========================
+
+// 마이그레이션 함수 (IndexedDB → Supabase)
+export async function migrateToSupabase(): Promise<boolean> {
+  try {
+    console.log('🔄 Supabase 마이그레이션 시작...');
+    
+    // 1. IndexedDB에서 모든 데이터 export
+    const data = await exportData();
+    console.log('📤 IndexedDB 데이터 export 완료:', Object.keys(data));
+    
+    // 2. Supabase 어댑터 생성 (나중에 구현)
+    // const supabaseAdapter = new SupabaseAdapter();
+    
+    // 3. Supabase에 데이터 import
+    // await supabaseAdapter.importData(data);
+    
+    // 4. 어댑터 교체
+    // setDatabaseAdapter(supabaseAdapter);
+    
+    console.log('✅ Supabase 마이그레이션 완료!');
+    return true;
   } catch (error) {
-    console.error('checkAllExpanded error:', error);
-    return false; // 에러 시 기본값 반환
+    console.error('❌ Supabase 마이그레이션 실패:', error);
+    return false;
+  }
+}
+
+// 마이그레이션 상태 확인
+export async function checkMigrationStatus(): Promise<{
+  isMigrated: boolean;
+  lastMigration?: string;
+  dataSize: number;
+}> {
+  try {
+    const settings = await getSettings();
+    const data = await exportData();
+    
+    return {
+      isMigrated: settings.lastBackup !== undefined,
+      lastMigration: settings.lastBackup,
+      dataSize: JSON.stringify(data).length,
+    };
+  } catch (error) {
+    console.error('마이그레이션 상태 확인 실패:', error);
+    return {
+      isMigrated: false,
+      dataSize: 0,
+    };
   }
 }
 

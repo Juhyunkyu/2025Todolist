@@ -5,6 +5,7 @@ export { default as Badge } from './Badge';
 export { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from './Card';
 export { default as Checkbox } from './Checkbox';
 export { default as Select } from './Select';
+export { default as Calendar } from './Calendar';
 export { default as Dialog, DialogHeader, DialogTitle, DialogDescription, DialogContent, DialogFooter } from './Dialog';
 
 // 타입들을 별도로 export
