@@ -23,6 +23,9 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 
+// 상수 정의
+const MAX_HIERARCHY_LEVEL = 2; // 최대 2단계까지만 허용
+
 // 계층적 할일 아이템 타입 정의
 interface HierarchicalTodo {
   id: string;
@@ -44,10 +47,11 @@ interface HierarchicalTodoItemProps {
   todo: HierarchicalTodo;
   level?: number;
   onUpdate: () => void;
+  isLast?: boolean; // 마지막 항목인지 여부
 }
 
 const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = React.memo(
-  ({ todo, level = 0, onUpdate }) => {
+  ({ todo, level = 0, onUpdate, isLast = false }) => {
     const { currentTheme } = useTheme();
 
     // 커스텀 훅 사용
@@ -74,7 +78,7 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = React.memo(
       setNewChildTitle,
       setShowActions,
       setError,
-    } = useHierarchicalTodoItem({ todo, onUpdate });
+    } = useHierarchicalTodoItem({ todo, onUpdate, level });
 
     // 드래그앤드롭 센서 설정
     const sensors = useSensors(
@@ -103,12 +107,13 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = React.memo(
           display: "flex",
           alignItems: "center",
           padding: `${currentTheme.spacing["2"]} 0`,
-          marginLeft: `${level * 30}px`,
-          borderBottom: `1px solid ${currentTheme.colors.border.default}`,
+          marginLeft: `${level * 16}px`, // 들여쓰기 간격 줄임 (24px → 16px)
           backgroundColor: currentTheme.colors.background.primary,
           transition: `all ${currentTheme.animation.duration.fast} ${currentTheme.animation.easing.default}`,
           position: "relative" as const,
           minHeight: "40px",
+          // 계층 레벨에 따른 시각적 구분
+          paddingLeft: level > 0 ? currentTheme.spacing["3"] : 0,
         },
         header: {
           display: "flex",
@@ -149,7 +154,7 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = React.memo(
           display: "flex",
           gap: currentTheme.spacing["2"],
           marginTop: currentTheme.spacing["1"],
-          paddingLeft: currentTheme.spacing["6"],
+          paddingLeft: `${level * 16 + 44}px`, // 새로운 들여쓰기에 맞춰 조정
         },
         error: {
           color: currentTheme.colors.status.error,
@@ -185,18 +190,29 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = React.memo(
           tabIndex={0}
         >
           <div style={styles.header}>
-            {/* 확장/축소 버튼 */}
-            {todo.children.length > 0 && (
-              <button
-                onClick={handleExpansionToggle}
-                style={styles.expansionButton}
-                aria-label={todo.isExpanded ? "접기" : "펼치기"}
-              >
-                {expansionIcon}
-              </button>
-            )}
+            {/* 확장/축소 버튼 또는 투명한 플레이스홀더 */}
+            <button
+              onClick={
+                todo.children.length > 0 ? handleExpansionToggle : undefined
+              }
+              style={{
+                ...styles.expansionButton,
+                opacity: todo.children.length > 0 ? 1 : 0, // 하위 항목이 없으면 투명하게
+                cursor: todo.children.length > 0 ? "pointer" : "default",
+              }}
+              aria-label={
+                todo.children.length > 0
+                  ? todo.isExpanded
+                    ? "접기"
+                    : "펼치기"
+                  : ""
+              }
+              disabled={todo.children.length === 0}
+            >
+              {expansionIcon || " "} {/* 하위 항목이 없으면 공백 문자 */}
+            </button>
 
-            {/* 체크박스 */}
+            {/* 체크박스 - 이제 들여쓰기 불필요 (플레이스홀더로 정렬됨) */}
             <button
               onClick={handleToggle}
               disabled={isLoading}
@@ -225,6 +241,8 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = React.memo(
               onCopy={handleCopyAsMarkdown}
               onDelete={handleDelete}
               showActions={showActions}
+              level={level}
+              maxLevel={MAX_HIERARCHY_LEVEL}
             />
           </div>
         </div>
@@ -245,7 +263,7 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = React.memo(
         )}
 
         {/* 자식 항목 추가 UI */}
-        {isAddingChild && (
+        {isAddingChild && level < MAX_HIERARCHY_LEVEL && (
           <div style={styles.addChild}>
             <Input
               placeholder="하위 항목 제목을 입력하세요..."

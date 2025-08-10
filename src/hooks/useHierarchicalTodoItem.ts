@@ -16,6 +16,7 @@ import {
 interface UseHierarchicalTodoItemProps {
   todo: HierarchicalTodo;
   onUpdate: () => void;
+  level?: number; // 계층 레벨 추가
 }
 
 interface UseHierarchicalTodoItemReturn {
@@ -48,7 +49,9 @@ interface UseHierarchicalTodoItemReturn {
   setError: Dispatch<SetStateAction<string | null>>;
 }
 
-export const useHierarchicalTodoItem = ({ todo, onUpdate }: UseHierarchicalTodoItemProps): UseHierarchicalTodoItemReturn => {
+const MAX_HIERARCHY_LEVEL = 2; // 최대 2단계까지만 허용
+
+export const useHierarchicalTodoItem = ({ todo, onUpdate, level = 0 }: UseHierarchicalTodoItemProps): UseHierarchicalTodoItemReturn => {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(todo.title);
   const [isAddingChild, setIsAddingChild] = useState(false);
@@ -127,6 +130,12 @@ export const useHierarchicalTodoItem = ({ todo, onUpdate }: UseHierarchicalTodoI
   // 자식 항목 추가
   const handleAddChild = useCallback(async () => {
     if (newChildTitle.trim() === "") return;
+    
+    // 최대 계층 레벨 체크
+    if (level >= MAX_HIERARCHY_LEVEL) {
+      setError(`최대 ${MAX_HIERARCHY_LEVEL}단계까지만 하위 항목을 추가할 수 있습니다.`);
+      return;
+    }
 
     setError(null);
     try {
@@ -149,7 +158,7 @@ export const useHierarchicalTodoItem = ({ todo, onUpdate }: UseHierarchicalTodoI
     } catch (error) {
       setError("자식 항목 추가에 실패했습니다.");
     }
-  }, [newChildTitle, children.length, todo.id, onUpdate, loadChildren]);
+  }, [newChildTitle, children.length, todo.id, onUpdate, loadChildren, level]);
 
   // 항목 삭제
   const handleDelete = useCallback(async () => {

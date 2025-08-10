@@ -9,6 +9,8 @@ interface TodoItemActionsProps {
   onCopy: () => void;
   onDelete: () => void;
   showActions: boolean;
+  level?: number; // 계층 레벨 추가
+  maxLevel?: number; // 최대 계층 레벨 추가
 }
 
 const TodoItemActions: React.FC<TodoItemActionsProps> = ({
@@ -18,8 +20,13 @@ const TodoItemActions: React.FC<TodoItemActionsProps> = ({
   onCopy,
   onDelete,
   showActions,
+  level = 0,
+  maxLevel = 2,
 }) => {
   const { currentTheme } = useTheme();
+
+  // 최대 계층 레벨에 도달했는지 확인
+  const canAddChild = level < maxLevel;
 
   const buttonGroupStyles: React.CSSProperties = {
     display: "flex",
@@ -55,15 +62,17 @@ const TodoItemActions: React.FC<TodoItemActionsProps> = ({
       >
         ✏️
       </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={onAddChild}
-        style={buttonStyle}
-        aria-label="하위 항목 추가"
-      >
-        ➕
-      </Button>
+      {canAddChild && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onAddChild}
+          style={buttonStyle}
+          aria-label="하위 항목 추가"
+        >
+          ➕
+        </Button>
+      )}
       <Button
         variant="ghost"
         size="sm"

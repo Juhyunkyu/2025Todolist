@@ -192,7 +192,6 @@ const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
         alignItems: "center",
         marginBottom: currentTheme.spacing["4"],
         padding: `${currentTheme.spacing["2"]} 0`,
-        borderBottom: `1px solid ${currentTheme.colors.border.default}`,
         backgroundColor: currentTheme.colors.background.primary,
       },
       stats: {
@@ -239,23 +238,21 @@ const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
         fontWeight: currentTheme.typography.fontWeight.medium,
         color: currentTheme.colors.text.secondary,
         minWidth: "60px",
-        paddingTop: currentTheme.spacing["2"],
-        paddingRight: currentTheme.spacing["2"],
-        textAlign: "left" as const,
+        padding: `${currentTheme.spacing["3"]} ${currentTheme.spacing["2"]}`,
+        textAlign: "center" as const,
         height: "40px",
         display: "flex",
         alignItems: "center",
+        justifyContent: "center",
       },
       contentSection: {
         flex: 1,
-        borderLeft: `1px solid ${currentTheme.colors.border.default}`,
-        paddingLeft: currentTheme.spacing["4"],
         backgroundColor: currentTheme.colors.background.primary,
       },
       dateGroupDivider: {
         height: "1px",
-        backgroundColor: currentTheme.colors.border.default,
-        margin: `${currentTheme.spacing["2"]} 0`,
+        backgroundColor: `${currentTheme.colors.border.default}70`,
+        margin: `${currentTheme.spacing["4"]} 0`,
       },
     }),
     [currentTheme]
@@ -400,7 +397,19 @@ const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
         <div>
           {groupedTodos.map((group, groupIndex) => (
             <div key={group.date}>
-              <div style={styles.dateGroup}>
+              <div
+                style={{
+                  ...styles.dateGroup,
+                  borderBottom:
+                    groupIndex === groupedTodos.length - 1
+                      ? `1px solid ${currentTheme.colors.border.default}70`
+                      : "none",
+                  paddingBottom:
+                    groupIndex === groupedTodos.length - 1
+                      ? currentTheme.spacing["4"]
+                      : 0,
+                }}
+              >
                 {/* 날짜 헤더 */}
                 <div style={styles.dateHeader}>
                   {group.date !== "no-date" ? formatDate(group.date) : ""}
@@ -418,11 +427,12 @@ const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
                       strategy={verticalListSortingStrategy}
                     >
                       <div>
-                        {group.todos.map((todo) => (
+                        {group.todos.map((todo, todoIndex) => (
                           <HierarchicalTodoItem
                             key={`${todo.id}-${todo.isExpanded}-${todo.updatedAt}`}
                             todo={todo}
                             level={0}
+                            isLast={todoIndex === group.todos.length - 1}
                             onUpdate={() => {
                               if (onUpdate) {
                                 onUpdate();
