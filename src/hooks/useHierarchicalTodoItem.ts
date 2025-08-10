@@ -147,7 +147,7 @@ export const useHierarchicalTodoItem = ({ todo, onUpdate, level = 0 }: UseHierar
         isExpanded: false,
         order: nextOrder,
         tags: [],
-        date: new Date().toISOString(),
+        date: null, // 날짜를 설정하지 않음
         repeat: "none",
       });
 

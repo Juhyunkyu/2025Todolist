@@ -7,7 +7,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 interface AddTodoProps {
   onAdd: (todo: {
     title: string;
-    date: string;
+    date: string | null;
     alarmTime?: string;
     isPinned?: boolean;
   }) => void;
@@ -124,14 +124,13 @@ const CloseIcon = ({
 const AddTodo: React.FC<AddTodoProps> = ({ onAdd, onCancel, initialDate }) => {
   const { currentTheme } = useTheme();
   const [title, setTitle] = useState("");
-  const [date, setDate] = useState(
-    initialDate || new Date().toISOString().split("T")[0]
-  );
+  const [date, setDate] = useState<string | null>(initialDate || null);
   const [alarmTime, setAlarmTime] = useState("");
   const [isPinned, setIsPinned] = useState(false);
   const [isDateSelected, setIsDateSelected] = useState(false);
   const [isTodaySelected, setIsTodaySelected] = useState(false);
   const [isTomorrowSelected, setIsTomorrowSelected] = useState(false);
+
   const [showCalendar, setShowCalendar] = useState(false);
 
   // 날짜 관련 유틸리티 함수들
@@ -145,7 +144,8 @@ const AddTodo: React.FC<AddTodoProps> = ({ onAdd, onCancel, initialDate }) => {
     return tomorrow.toISOString().split("T")[0];
   }, []);
 
-  const formatDisplayDate = useCallback((dateStr: string) => {
+  const formatDisplayDate = useCallback((dateStr: string | null) => {
+    if (!dateStr) return "날짜 없음";
     const date = new Date(dateStr);
     const month = date.getMonth() + 1;
     const day = date.getDate();
@@ -184,11 +184,11 @@ const AddTodo: React.FC<AddTodoProps> = ({ onAdd, onCancel, initialDate }) => {
   const handleTodayClick = useCallback(() => {
     const today = getTodayString();
     if (isTodaySelected) {
-      // 해제
+      // 해제 - 날짜 없음으로 변경
       setIsTodaySelected(false);
       setIsTomorrowSelected(false);
       setIsDateSelected(false);
-      setDate(today);
+      setDate(null);
     } else {
       // 선택
       setIsTodaySelected(true);
@@ -201,11 +201,11 @@ const AddTodo: React.FC<AddTodoProps> = ({ onAdd, onCancel, initialDate }) => {
   const handleTomorrowClick = useCallback(() => {
     const tomorrow = getTomorrowString();
     if (isTomorrowSelected) {
-      // 해제
+      // 해제 - 날짜 없음으로 변경
       setIsTomorrowSelected(false);
       setIsTodaySelected(false);
       setIsDateSelected(false);
-      setDate(getTodayString());
+      setDate(null);
     } else {
       // 선택
       setIsTomorrowSelected(true);
@@ -213,14 +213,14 @@ const AddTodo: React.FC<AddTodoProps> = ({ onAdd, onCancel, initialDate }) => {
       setIsDateSelected(false);
       setDate(tomorrow);
     }
-  }, [isTomorrowSelected, getTomorrowString, getTodayString]);
+  }, [isTomorrowSelected, getTomorrowString]);
 
   const handleClearDate = useCallback(() => {
     setIsDateSelected(false);
     setIsTodaySelected(false);
     setIsTomorrowSelected(false);
-    setDate(getTodayString());
-  }, [getTodayString]);
+    setDate(null);
+  }, []);
 
   const handleCalendarClick = useCallback(() => {
     setShowCalendar(true);
@@ -374,6 +374,7 @@ const AddTodo: React.FC<AddTodoProps> = ({ onAdd, onCancel, initialDate }) => {
     marginTop: currentTheme.spacing["3"],
   };
 
+  // 날짜가 활성화되었는지 확인 (날짜 없음은 비활성 상태로 간주)
   const isDateActive = isDateSelected || isTodaySelected || isTomorrowSelected;
 
   return (
@@ -549,7 +550,7 @@ const AddTodo: React.FC<AddTodoProps> = ({ onAdd, onCancel, initialDate }) => {
             }}
           >
             <Calendar
-              selectedDate={date}
+              selectedDate={date || undefined}
               onDateSelect={handleCalendarDateSelect}
               onClose={handleCalendarClose}
             />

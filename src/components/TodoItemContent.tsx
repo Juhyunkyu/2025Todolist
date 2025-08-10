@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { Input } from "@/components/ui";
 import { useTheme } from "@/contexts/ThemeContext";
 
@@ -25,6 +25,31 @@ const TodoItemContent: React.FC<TodoItemContentProps> = ({
   onDoubleClick,
 }) => {
   const { currentTheme } = useTheme();
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // 외부 클릭 감지하여 수정 모드 취소
+  useEffect(() => {
+    if (!isEditing) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        inputRef.current &&
+        !inputRef.current.contains(event.target as Node)
+      ) {
+        onCancel();
+      }
+    };
+
+    // 약간의 지연을 두어 현재 클릭 이벤트가 처리된 후 외부 클릭 감지
+    const timeoutId = setTimeout(() => {
+      document.addEventListener("mousedown", handleClickOutside);
+    }, 0);
+
+    return () => {
+      clearTimeout(timeoutId);
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isEditing, onCancel]);
 
   const titleStyles: React.CSSProperties = {
     flex: 1,
@@ -41,6 +66,7 @@ const TodoItemContent: React.FC<TodoItemContentProps> = ({
   if (isEditing) {
     return (
       <Input
+        ref={inputRef}
         value={editTitle}
         onChange={(e) => onTitleChange(e.target.value)}
         onKeyDown={(e) => {
@@ -57,7 +83,10 @@ const TodoItemContent: React.FC<TodoItemContentProps> = ({
   return (
     <span
       style={titleStyles}
-      onDoubleClick={onDoubleClick}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        onDoubleClick();
+      }}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {

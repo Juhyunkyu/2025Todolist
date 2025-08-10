@@ -21,8 +21,8 @@ type TabType = "todo" | "note";
 // 상수 정의
 const CONSTANTS = {
   LARGE_SCREEN_BREAKPOINT: 1200,
-  LARGE_SCREEN_MAX_WIDTH: "1800px",
-  DEFAULT_MAX_WIDTH: "1600px",
+  LARGE_SCREEN_MAX_WIDTH: "1400px", // 더 작게 조정
+  DEFAULT_MAX_WIDTH: "1200px", // 더 작게 조정
   ADD_BUTTON_SIZE: 56,
   WEEK_DAYS: 7,
 } as const;
@@ -43,7 +43,8 @@ const dateUtils = {
     return weekFromNow.toISOString().split("T")[0];
   },
 
-  isDateInWeekRange: (date: string): boolean => {
+  isDateInWeekRange: (date: string | null): boolean => {
+    if (!date) return false;
     const todoDate = new Date(date);
     const now = new Date();
     const weekFromNow = new Date();
@@ -51,8 +52,9 @@ const dateUtils = {
     return todoDate >= now && todoDate <= weekFromNow;
   },
 
-  isDateToday: (date: string): boolean => date === dateUtils.getTodayDate(),
-  isDateTomorrow: (date: string): boolean =>
+  isDateToday: (date: string | null): boolean =>
+    date === dateUtils.getTodayDate(),
+  isDateTomorrow: (date: string | null): boolean =>
     date === dateUtils.getTomorrowDate(),
 } as const;
 
@@ -124,7 +126,7 @@ function HomeContent() {
         (todo) =>
           todo.title.toLowerCase().includes(query) ||
           todo.tags.some((tag) => tag.toLowerCase().includes(query)) ||
-          todo.date.includes(query)
+          (todo.date && todo.date.includes(query))
       );
     }
 
@@ -160,7 +162,7 @@ function HomeContent() {
   const handleAddTodo = useCallback(
     async (todoData: {
       title: string;
-      date: string;
+      date: string | null;
       alarmTime?: string;
       isPinned?: boolean;
     }) => {
@@ -247,8 +249,8 @@ function HomeContent() {
         : CONSTANTS.DEFAULT_MAX_WIDTH,
       margin: "0 auto",
       padding: `0 ${
-        isLargeScreen ? currentTheme.spacing["8"] : currentTheme.spacing["4"]
-      }`,
+        isLargeScreen ? currentTheme.spacing["12"] : currentTheme.spacing["6"]
+      }`, // 여백을 더 늘림
     }),
     [isLargeScreen, currentTheme.spacing]
   );
@@ -315,13 +317,12 @@ function HomeContent() {
 
   return (
     <div style={containerStyles}>
-      {/* 헤더 */}
-      <Header onSearch={handleSearch} onSettingsClick={handleSettingsClick} />
-
-      {/* 탭 네비게이션 */}
-      <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
-
       <main style={mainStyles} role="main" aria-label="할일 관리 메인 콘텐츠">
+        {/* 헤더 */}
+        <Header onSearch={handleSearch} onSettingsClick={handleSettingsClick} />
+
+        {/* 탭 네비게이션 */}
+        <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
         {activeTab === "todo" && (
           <div style={contentStyles}>
             {/* 에러 상태 표시 */}

@@ -40,6 +40,18 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
   containerId = "tab-navigation",
 }) => {
   const { currentTheme } = useTheme();
+  const [isLargeScreen, setIsLargeScreen] = React.useState(false);
+
+  // 화면 크기 감지
+  React.useEffect(() => {
+    const checkScreenSize = () => {
+      setIsLargeScreen(window.innerWidth > 1200); // page.tsx와 동일한 기준
+    };
+
+    checkScreenSize();
+    window.addEventListener("resize", checkScreenSize);
+    return () => window.removeEventListener("resize", checkScreenSize);
+  }, []);
 
   // 컨테이너 스타일 메모이제이션
   const containerStyles: React.CSSProperties = useMemo(
@@ -47,14 +59,10 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
       display: "flex",
       borderBottom: `1px solid ${currentTheme.colors.border.default}`,
       backgroundColor: currentTheme.colors.background.primary,
-      padding: `0 0 0 ${currentTheme.spacing["4"]}`,
+      padding: "0", // 여백 제거 - 상위 컨테이너에서 관리
       marginTop: "0",
     }),
-    [
-      currentTheme.colors.border.default,
-      currentTheme.colors.background.primary,
-      currentTheme.spacing,
-    ]
+    [currentTheme.colors.border.default, currentTheme.colors.background.primary]
   );
 
   // 탭 스타일 생성 함수 메모이제이션

@@ -12,12 +12,19 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ onSearch, onSettingsClick }) => {
   const { currentTheme, selectedTheme } = useTheme();
   const [searchQuery, setSearchQuery] = useState("");
-  const [isSmallScreen, setIsSmallScreen] = useState(false);
+  const [windowWidth, setWindowWidth] = useState(1024);
+  const [showMobileSearch, setShowMobileSearch] = useState(false);
+  const [isLargeScreen, setIsLargeScreen] = useState(false);
 
   // 화면 크기 감지
   React.useEffect(() => {
     const checkScreenSize = () => {
-      setIsSmallScreen(window.innerWidth < 768);
+      setWindowWidth(window.innerWidth);
+      setIsLargeScreen(window.innerWidth > 1200); // page.tsx와 동일한 기준
+      // 데스크톱으로 변경되면 모바일 검색창 숨기기
+      if (window.innerWidth >= 768) {
+        setShowMobileSearch(false);
+      }
     };
 
     checkScreenSize();
@@ -44,17 +51,36 @@ const Header: React.FC<HeaderProps> = ({ onSearch, onSettingsClick }) => {
     [onSearch]
   );
 
+  // 모바일 검색 토글 핸들러
+  const handleMobileSearchToggle = useCallback(() => {
+    setShowMobileSearch(!showMobileSearch);
+    if (!showMobileSearch) {
+      // 검색창이 열릴 때 포커스
+      setTimeout(() => {
+        const searchInput = document.querySelector(
+          'input[type="search"]'
+        ) as HTMLInputElement;
+        if (searchInput) {
+          searchInput.focus();
+        }
+      }, 100);
+    }
+  }, [showMobileSearch]);
+
   // 다크모드 감지 (메모이제이션)
   const isDarkMode = useMemo(
     () => selectedTheme === "dark" || selectedTheme === "gray-dark",
     [selectedTheme]
   );
 
-  // 로고 크기 계산 (메모이제이션)
-  const logoSize = useMemo(
-    () => (isSmallScreen ? "80px" : "60px"),
-    [isSmallScreen]
-  );
+  // 로고 크기 계산 (메모이제이션) - 화면이 클 때 로고가 더 크게
+  const logoSize = useMemo(() => {
+    if (windowWidth < 480) return "60px"; // 모바일 - 더 크게
+    if (windowWidth < 768) return "70px"; // 태블릿 - 더 크게
+    if (windowWidth < 1024) return "80px"; // 작은 데스크톱 - 더 크게
+    if (windowWidth < 1440) return "90px"; // 중간 데스크톱 - 더 크게
+    return "100px"; // 큰 데스크톱 - 더 크게
+  }, [windowWidth]);
 
   // 스타일 객체들 메모이제이션
   const headerStyles: React.CSSProperties = useMemo(
@@ -62,7 +88,7 @@ const Header: React.FC<HeaderProps> = ({ onSearch, onSettingsClick }) => {
       display: "flex",
       justifyContent: "space-between",
       alignItems: "center",
-      padding: `${currentTheme.spacing["2"]} 0 ${currentTheme.spacing["2"]} ${currentTheme.spacing["4"]}`,
+      padding: `${currentTheme.spacing["2"]} 0`, // 여백 제거 - 상위 컨테이너에서 관리
       backgroundColor: currentTheme.colors.background.primary,
       position: "sticky",
       top: 0,
@@ -101,16 +127,17 @@ const Header: React.FC<HeaderProps> = ({ onSearch, onSettingsClick }) => {
   const searchContainerStyles: React.CSSProperties = useMemo(
     () => ({
       flex: 1,
-      maxWidth: "600px",
+      maxWidth: windowWidth < 768 ? "100%" : "400px", // 모바일에서는 더 짧게
       margin: `0 ${currentTheme.spacing["4"]}`,
+      display: windowWidth < 768 && !showMobileSearch ? "none" : "block",
     }),
-    [currentTheme.spacing]
+    [currentTheme.spacing, windowWidth, showMobileSearch]
   );
 
   const actionsStyles: React.CSSProperties = useMemo(
     () => ({
       display: "flex",
-      gap: currentTheme.spacing["2"],
+      gap: currentTheme.spacing["1"], // 더 작은 간격으로 변경
       alignItems: "center",
     }),
     [currentTheme.spacing]
@@ -174,10 +201,43 @@ const Header: React.FC<HeaderProps> = ({ onSearch, onSettingsClick }) => {
           fill="none"
         />
         <path
-          d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
+          d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
           stroke="currentColor"
           strokeWidth="2"
           fill="none"
+        />
+      </svg>
+    ),
+    [currentTheme.colors.text.primary]
+  );
+
+  // 돋보기 아이콘 SVG 컴포넌트
+  const SearchIcon = useMemo(
+    () => (
+      <svg
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        style={{
+          color: currentTheme.colors.text.primary,
+        }}
+      >
+        <circle
+          cx="11"
+          cy="11"
+          r="8"
+          stroke="currentColor"
+          strokeWidth="2"
+          fill="none"
+        />
+        <path
+          d="m21 21-4.35-4.35"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
         />
       </svg>
     ),
@@ -208,6 +268,17 @@ const Header: React.FC<HeaderProps> = ({ onSearch, onSettingsClick }) => {
 
       {/* 설정 */}
       <div style={actionsStyles}>
+        {/* 모바일에서만 돋보기 아이콘 표시 */}
+        {windowWidth < 768 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleMobileSearchToggle}
+            style={settingsButtonStyles}
+          >
+            {SearchIcon}
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="sm"

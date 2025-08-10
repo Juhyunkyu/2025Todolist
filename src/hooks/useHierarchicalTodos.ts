@@ -77,7 +77,7 @@ export const useHierarchicalTodos = ({ externalTodos, onUpdate }: UseHierarchica
         isExpanded: false,
         order: nextOrder,
         tags: [],
-        date: new Date().toISOString(),
+        date: null, // 날짜를 설정하지 않음
         repeat: 'none',
       });
 

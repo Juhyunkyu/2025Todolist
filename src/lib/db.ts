@@ -34,7 +34,7 @@ interface TodoPlannerDB extends DBSchema {
       isExpanded: boolean;   // 펼침/접힘 상태
       order: number;         // 정렬 순서
       tags: string[];
-      date: string;
+      date: string | null;   // 날짜가 설정되지 않을 수 있음
       repeat: 'none' | 'daily' | 'weekly' | 'monthly';
       alarmTime?: string;
       createdAt: string;
@@ -91,12 +91,28 @@ interface TodoPlannerDB extends DBSchema {
   settings: {
     key: string;
     value: {
+      id: string;
       theme: 'dark' | 'light' | 'orange' | 'pastel' | 'purple' | 'gray' | 'gray-dark';
       notifications: boolean;
       autoBackup: boolean;
       lastBackup?: string;
     };
   };
+}
+
+// ========================
+// 에러 타입 정의
+// ========================
+
+export class DatabaseError extends Error {
+  constructor(
+    message: string,
+    public readonly operation: string,
+    public readonly originalError?: unknown
+  ) {
+    super(message);
+    this.name = 'DatabaseError';
+  }
 }
 
 // ========================
@@ -118,15 +134,41 @@ function createCommonFields<T extends { id?: string; createdAt?: string; updated
   } as T;
 }
 
-// 트랜잭션 래퍼 (Supabase 연동 시 유용)
+// 개선된 트랜잭션 래퍼
 async function withTransaction<T>(
-  operation: () => Promise<T>
+  operation: () => Promise<T>,
+  operationName: string = 'unknown'
 ): Promise<T> {
   try {
     return await operation();
   } catch (error) {
-    console.error('Database operation failed:', error);
-    throw error;
+    const dbError = new DatabaseError(
+      `Database operation '${operationName}' failed: ${error instanceof Error ? error.message : String(error)}`,
+      operationName,
+      error
+    );
+    
+    // 에러 타입별 처리
+    if (error instanceof Error) {
+      if (error.name === 'QuotaExceededError') {
+        console.error('Database quota exceeded. Consider clearing old data.');
+        // 사용자에게 저장 공간 부족 알림
+      } else if (error.name === 'VersionError') {
+        console.error('Database version mismatch. Reloading page...');
+        // 페이지 새로고침 제안
+      } else if (error.name === 'InvalidStateError') {
+        console.error('Database is in invalid state. Reinitializing...');
+        // 데이터베이스 재초기화
+      }
+    }
+    
+    console.error('Database operation failed:', {
+      operation: operationName,
+      error: dbError.message,
+      originalError: error
+    });
+    
+    throw dbError;
   }
 }
 
@@ -140,8 +182,10 @@ let db: IDBPDatabase<TodoPlannerDB> | null = null;
 export async function initDB(): Promise<IDBPDatabase<TodoPlannerDB>> {
   if (db) return db;
 
-  db = await openDB<TodoPlannerDB>('todo-planner', 2, {
+  db = await openDB<TodoPlannerDB>('todo-planner-v3', 3, {
     upgrade(db, oldVersion) {
+      console.log(`Database upgrade: version ${oldVersion} → 3`);
+      
       // Todos 스토어 (기존)
       if (oldVersion < 1) {
         const todosStore = db.createObjectStore('todos', { keyPath: 'id' });
@@ -171,6 +215,33 @@ export async function initDB(): Promise<IDBPDatabase<TodoPlannerDB>> {
         hierarchicalTodosStore.createIndex('by-date', 'date');
         hierarchicalTodosStore.createIndex('by-tags', 'tags');
       }
+
+      // v3: hierarchicalTodos의 date 필드를 null 허용으로 업데이트
+      if (oldVersion < 3) {
+        console.log('Upgrading hierarchicalTodos schema for null date support...');
+        
+        // 기존 스토어가 있으면 삭제하고 새로 생성
+        if (db.objectStoreNames.contains('hierarchicalTodos')) {
+          db.deleteObjectStore('hierarchicalTodos');
+        }
+        
+        // 새로운 스키마로 스토어 생성
+        const hierarchicalTodosStore = db.createObjectStore('hierarchicalTodos', { keyPath: 'id' });
+        hierarchicalTodosStore.createIndex('by-parent', 'parentId');
+        hierarchicalTodosStore.createIndex('by-date', 'date');
+        hierarchicalTodosStore.createIndex('by-tags', 'tags');
+        
+        console.log('Hierarchical todos schema upgraded successfully');
+      }
+    },
+    
+    // 데이터베이스 차단 이벤트 처리
+    blocked() {
+      console.warn('Database blocked - another tab may be using the database');
+    },
+    
+    blocking() {
+      console.warn('Database blocking - this tab is blocking another tab');
     },
   });
 
@@ -193,21 +264,21 @@ export async function addTodo(todo: Omit<TodoPlannerDB['todos']['value'], 'id' |
     const newTodo = createCommonFields<TodoPlannerDB['todos']['value']>(todo);
     await db.add('todos', newTodo);
     return newTodo;
-  });
+  }, 'addTodo');
 }
 
 export async function getTodos(): Promise<TodoPlannerDB['todos']['value'][]> {
   return await withTransaction(async () => {
     const db = await getDB();
     return await db.getAll('todos');
-  });
+  }, 'getTodos');
 }
 
 export async function getTodoById(id: string): Promise<TodoPlannerDB['todos']['value'] | undefined> {
   return await withTransaction(async () => {
     const db = await getDB();
     return await db.get('todos', id);
-  });
+  }, 'getTodoById');
 }
 
 export async function updateTodo(id: string, updates: Partial<TodoPlannerDB['todos']['value']>) {
@@ -224,14 +295,14 @@ export async function updateTodo(id: string, updates: Partial<TodoPlannerDB['tod
 
     await db.put('todos', updatedTodo);
     return updatedTodo;
-  });
+  }, 'updateTodo');
 }
 
 export async function deleteTodo(id: string) {
   return await withTransaction(async () => {
     const db = await getDB();
     await db.delete('todos', id);
-  });
+  }, 'deleteTodo');
 }
 
 export async function toggleTodo(id: string) {
@@ -239,7 +310,7 @@ export async function toggleTodo(id: string) {
     const todo = await getTodoById(id);
     if (!todo) throw new Error('Todo not found');
     return await updateTodo(id, { isDone: !todo.isDone });
-  });
+  }, 'toggleTodo');
 }
 
 // Notes CRUD
@@ -249,14 +320,14 @@ export async function addNote(note: Omit<TodoPlannerDB['notes']['value'], 'id' |
     const newNote = createCommonFields<TodoPlannerDB['notes']['value']>(note);
     await db.add('notes', newNote);
     return newNote;
-  });
+  }, 'addNote');
 }
 
 export async function getNotes(): Promise<TodoPlannerDB['notes']['value'][]> {
   return await withTransaction(async () => {
     const db = await getDB();
     return await db.getAll('notes');
-  });
+  }, 'getNotes');
 }
 
 export async function updateNote(id: string, updates: Partial<TodoPlannerDB['notes']['value']>) {
@@ -273,14 +344,14 @@ export async function updateNote(id: string, updates: Partial<TodoPlannerDB['not
 
     await db.put('notes', updatedNote);
     return updatedNote;
-  });
+  }, 'updateNote');
 }
 
 export async function deleteNote(id: string) {
   return await withTransaction(async () => {
     const db = await getDB();
     await db.delete('notes', id);
-  });
+  }, 'deleteNote');
 }
 
 // Birthdays CRUD
@@ -290,14 +361,14 @@ export async function addBirthday(birthday: Omit<TodoPlannerDB['birthdays']['val
     const newBirthday = createCommonFields<TodoPlannerDB['birthdays']['value']>(birthday);
     await db.add('birthdays', newBirthday);
     return newBirthday;
-  });
+  }, 'addBirthday');
 }
 
 export async function getBirthdays(): Promise<TodoPlannerDB['birthdays']['value'][]> {
   return await withTransaction(async () => {
     const db = await getDB();
     return await db.getAll('birthdays');
-  });
+  }, 'getBirthdays');
 }
 
 export async function updateBirthday(id: string, updates: Partial<TodoPlannerDB['birthdays']['value']>) {
@@ -314,14 +385,14 @@ export async function updateBirthday(id: string, updates: Partial<TodoPlannerDB[
 
     await db.put('birthdays', updatedBirthday);
     return updatedBirthday;
-  });
+  }, 'updateBirthday');
 }
 
 export async function deleteBirthday(id: string) {
   return await withTransaction(async () => {
     const db = await getDB();
     await db.delete('birthdays', id);
-  });
+  }, 'deleteBirthday');
 }
 
 // Templates CRUD
@@ -331,14 +402,14 @@ export async function addTemplate(template: Omit<TodoPlannerDB['templates']['val
     const newTemplate = createCommonFields<TodoPlannerDB['templates']['value']>(template);
     await db.add('templates', newTemplate);
     return newTemplate;
-  });
+  }, 'addTemplate');
 }
 
 export async function getTemplates(): Promise<TodoPlannerDB['templates']['value'][]> {
   return await withTransaction(async () => {
     const db = await getDB();
     return await db.getAll('templates');
-  });
+  }, 'getTemplates');
 }
 
 export async function updateTemplate(id: string, updates: Partial<TodoPlannerDB['templates']['value']>) {
@@ -355,14 +426,14 @@ export async function updateTemplate(id: string, updates: Partial<TodoPlannerDB[
 
     await db.put('templates', updatedTemplate);
     return updatedTemplate;
-  });
+  }, 'updateTemplate');
 }
 
 export async function deleteTemplate(id: string) {
   return await withTransaction(async () => {
     const db = await getDB();
     await db.delete('templates', id);
-  });
+  }, 'deleteTemplate');
 }
 
 // Settings
@@ -374,16 +445,19 @@ export async function getSettings(): Promise<TodoPlannerDB['settings']['value']>
     if (!settings) {
       // 기본 설정 반환
       const defaultSettings: TodoPlannerDB['settings']['value'] = {
+        id: 'default',
         theme: 'dark',
         notifications: true,
         autoBackup: false,
       };
-      await db.add('settings', defaultSettings);
+      
+      // put을 사용하여 키가 이미 존재하면 덮어쓰고, 없으면 새로 생성
+      await db.put('settings', defaultSettings);
       return defaultSettings;
     }
     
     return settings;
-  });
+  }, 'getSettings');
 }
 
 export async function updateSettings(updates: Partial<TodoPlannerDB['settings']['value']>) {
@@ -392,6 +466,7 @@ export async function updateSettings(updates: Partial<TodoPlannerDB['settings'][
     const settings = await db.get('settings', 'default');
     
     const updatedSettings: TodoPlannerDB['settings']['value'] = {
+      id: 'default',
       theme: 'dark',
       notifications: true,
       autoBackup: false,
@@ -401,7 +476,7 @@ export async function updateSettings(updates: Partial<TodoPlannerDB['settings'][
 
     await db.put('settings', updatedSettings);
     return updatedSettings;
-  });
+  }, 'updateSettings');
 }
 
 // ========================
@@ -416,7 +491,8 @@ export async function clearAllData() {
     await db.clear('birthdays');
     await db.clear('templates');
     await db.clear('settings');
-  });
+    await db.clear('hierarchicalTodos');
+  }, 'clearAllData');
 }
 
 export async function exportData() {
@@ -426,6 +502,7 @@ export async function exportData() {
     const birthdays = await getBirthdays();
     const templates = await getTemplates();
     const settings = await getSettings();
+    const hierarchicalTodos = await getHierarchicalTodos();
 
     return {
       todos,
@@ -433,9 +510,10 @@ export async function exportData() {
       birthdays,
       templates,
       settings,
+      hierarchicalTodos,
       exportedAt: new Date().toISOString(),
     };
-  });
+  }, 'exportData');
 }
 
 export async function importData(data: Awaited<ReturnType<typeof exportData>>) {
@@ -462,12 +540,16 @@ export async function importData(data: Awaited<ReturnType<typeof exportData>>) {
       await db.add('templates', template);
     }
     
+    for (const hierarchicalTodo of data.hierarchicalTodos) {
+      await db.add('hierarchicalTodos', hierarchicalTodo);
+    }
+    
     await db.put('settings', data.settings);
-  });
+  }, 'importData');
 }
 
 // ========================
-// 계층적 할일 CRUD 함수들
+// 계층적 할일 CRUD 함수들 (성능 최적화)
 // ========================
 
 export async function addHierarchicalTodo(todo: Omit<TodoPlannerDB['hierarchicalTodos']['value'], 'id' | 'createdAt' | 'updatedAt' | 'children'>) {
@@ -486,37 +568,40 @@ export async function addHierarchicalTodo(todo: Omit<TodoPlannerDB['hierarchical
     }
 
     return newTodo;
-  });
+  }, 'addHierarchicalTodo');
 }
 
 export async function getHierarchicalTodos(): Promise<TodoPlannerDB['hierarchicalTodos']['value'][]> {
   return await withTransaction(async () => {
     const db = await getDB();
     return await db.getAll('hierarchicalTodos');
-  });
+  }, 'getHierarchicalTodos');
 }
 
 export async function getHierarchicalTodoById(id: string): Promise<TodoPlannerDB['hierarchicalTodos']['value'] | undefined> {
   return await withTransaction(async () => {
     const db = await getDB();
     return await db.get('hierarchicalTodos', id);
-  });
+  }, 'getHierarchicalTodoById');
 }
 
 // 성능 최적화된 부모별 조회
 export async function getHierarchicalTodosByParent(parentId?: string): Promise<TodoPlannerDB['hierarchicalTodos']['value'][]> {
   return await withTransaction(async () => {
     const db = await getDB();
+    
     if (parentId === undefined) {
-      // 최상위 항목들만 조회 (인덱스 활용)
+      // 최상위 항목들만 조회 - 인덱스 활용
       const allTodos = await db.getAll('hierarchicalTodos');
-      return allTodos.filter(todo => !todo.parentId).sort((a, b) => a.order - b.order);
+      return allTodos
+        .filter(todo => !todo.parentId)
+        .sort((a, b) => a.order - b.order);
     }
     
     // 인덱스를 활용한 효율적인 조회
     const todos = await db.getAllFromIndex('hierarchicalTodos', 'by-parent', parentId);
     return todos.sort((a, b) => a.order - b.order);
-  });
+  }, 'getHierarchicalTodosByParent');
 }
 
 export async function updateHierarchicalTodo(id: string, updates: Partial<TodoPlannerDB['hierarchicalTodos']['value']>) {
@@ -533,7 +618,7 @@ export async function updateHierarchicalTodo(id: string, updates: Partial<TodoPl
 
     await db.put('hierarchicalTodos', updatedTodo);
     return updatedTodo;
-  });
+  }, 'updateHierarchicalTodo');
 }
 
 export async function deleteHierarchicalTodo(id: string) {
@@ -553,7 +638,7 @@ export async function deleteHierarchicalTodo(id: string) {
     }
 
     await db.delete('hierarchicalTodos', id);
-  });
+  }, 'deleteHierarchicalTodo');
 }
 
 export async function toggleHierarchicalTodo(id: string) {
@@ -577,7 +662,7 @@ export async function toggleHierarchicalTodo(id: string) {
     }
 
     return await getHierarchicalTodoById(id);
-  });
+  }, 'toggleHierarchicalTodo');
 }
 
 export async function toggleHierarchicalTodoExpansion(id: string) {
@@ -586,7 +671,7 @@ export async function toggleHierarchicalTodoExpansion(id: string) {
     if (!todo) throw new Error('Hierarchical Todo not found');
 
     return await updateHierarchicalTodo(id, { isExpanded: !todo.isExpanded });
-  });
+  }, 'toggleHierarchicalTodoExpansion');
 }
 
 // ========================
@@ -668,7 +753,7 @@ export async function copyHierarchicalTodosAsMarkdown(): Promise<string> {
     }
     
     return markdown;
-  });
+  }, 'copyHierarchicalTodosAsMarkdown');
 }
 
 export async function copySingleHierarchicalTodoAsMarkdown(todoId: string): Promise<string> {
@@ -694,7 +779,7 @@ export async function copySingleHierarchicalTodoAsMarkdown(todoId: string): Prom
     };
 
     return await formatTodo(todo);
-  });
+  }, 'copySingleHierarchicalTodoAsMarkdown');
 }
 
 // ========================
@@ -739,7 +824,7 @@ export async function getHierarchicalTodoProgress(parentId?: string): Promise<{ 
     const percentage = total === 0 ? 0 : Math.round((completed / total) * 100);
     
     return { completed, total, percentage };
-  });
+  }, 'getHierarchicalTodoProgress');
 }
 
 // ========================
@@ -758,7 +843,7 @@ export async function reorderHierarchicalTodos(parentId: string | undefined, new
     if (parentId) {
       await updateHierarchicalTodo(parentId, { children: newOrder });
     }
-  });
+  }, 'reorderHierarchicalTodos');
 }
 
 export async function moveHierarchicalTodo(todoId: string, direction: 'up' | 'down') {
@@ -789,7 +874,7 @@ export async function moveHierarchicalTodo(todoId: string, direction: 'up' | 'do
     await reorderHierarchicalTodos(todo.parentId, newOrder.map(t => t.id));
     
     return true; // 성공적으로 이동
-  });
+  }, 'moveHierarchicalTodo');
 }
 
 // ========================
@@ -817,7 +902,7 @@ export async function expandAllHierarchicalTodos(expand: boolean) {
     }
     
     await updateAllTodos(); // 최상위부터 시작
-  });
+  }, 'expandAllHierarchicalTodos');
 }
 
 export async function checkAllExpanded() {
@@ -838,7 +923,7 @@ export async function checkAllExpanded() {
       console.error('checkAllExpanded error:', error);
       return false; // 에러 시 기본값 반환
     }
-  });
+  }, 'checkAllExpanded');
 }
 
 // ========================

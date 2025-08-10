@@ -6,6 +6,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useHierarchicalTodoItem } from "@/hooks/useHierarchicalTodoItem";
 import TodoItemActions from "./TodoItemActions";
 import TodoItemContent from "./TodoItemContent";
+import AddChildInput from "./AddChildInput";
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -36,7 +37,7 @@ interface HierarchicalTodo {
   isExpanded: boolean;
   order: number;
   tags: string[];
-  date: string;
+  date: string | null; // 날짜가 설정되지 않을 수 있음
   repeat: "none" | "daily" | "weekly" | "monthly";
   alarmTime?: string;
   createdAt: string;
@@ -117,10 +118,15 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = React.memo(
         },
         header: {
           display: "flex",
-          alignItems: "center",
-          gap: currentTheme.spacing["2"],
+          flexDirection: "column" as const,
           flex: 1,
           paddingLeft: level > 0 ? currentTheme.spacing["2"] : 0,
+        },
+        titleRow: {
+          display: "flex",
+          alignItems: "center",
+          gap: currentTheme.spacing["2"],
+          width: "100%",
         },
         expansionButton: {
           background: "none",
@@ -150,12 +156,7 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = React.memo(
           justifyContent: "center",
           padding: 0,
         },
-        addChild: {
-          display: "flex",
-          gap: currentTheme.spacing["2"],
-          marginTop: currentTheme.spacing["1"],
-          paddingLeft: `${level * 16 + 44}px`, // 새로운 들여쓰기에 맞춰 조정
-        },
+
         error: {
           color: currentTheme.colors.status.error,
           fontSize: currentTheme.typography.fontSize.sm,
@@ -181,8 +182,13 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = React.memo(
           style={styles.item}
           {...attributes}
           {...listeners}
-          onMouseEnter={() => setShowActions(true)}
-          onMouseLeave={() => setShowActions(false)}
+          onClick={() => setShowActions(!showActions)}
+          onBlur={(e) => {
+            // 다른 요소로 포커스가 이동했을 때 액션 버튼 숨기기
+            if (!e.currentTarget.contains(e.relatedTarget)) {
+              setShowActions(false);
+            }
+          }}
           role="treeitem"
           aria-expanded={todo.isExpanded}
           aria-checked={todo.isDone}
@@ -190,60 +196,78 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = React.memo(
           tabIndex={0}
         >
           <div style={styles.header}>
-            {/* 확장/축소 버튼 또는 투명한 플레이스홀더 */}
-            <button
-              onClick={
-                todo.children.length > 0 ? handleExpansionToggle : undefined
-              }
-              style={{
-                ...styles.expansionButton,
-                opacity: todo.children.length > 0 ? 1 : 0, // 하위 항목이 없으면 투명하게
-                cursor: todo.children.length > 0 ? "pointer" : "default",
-              }}
-              aria-label={
-                todo.children.length > 0
-                  ? todo.isExpanded
-                    ? "접기"
-                    : "펼치기"
-                  : ""
-              }
-              disabled={todo.children.length === 0}
-            >
-              {expansionIcon || " "} {/* 하위 항목이 없으면 공백 문자 */}
-            </button>
+            {/* 제목 행 */}
+            <div style={styles.titleRow}>
+              {/* 확장/축소 버튼 또는 투명한 플레이스홀더 */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (todo.children.length > 0) {
+                    handleExpansionToggle();
+                  }
+                }}
+                style={{
+                  ...styles.expansionButton,
+                  opacity: todo.children.length > 0 ? 1 : 0, // 하위 항목이 없으면 투명하게
+                  cursor: todo.children.length > 0 ? "pointer" : "default",
+                }}
+                aria-label={
+                  todo.children.length > 0
+                    ? todo.isExpanded
+                      ? "접기"
+                      : "펼치기"
+                    : ""
+                }
+                disabled={todo.children.length === 0}
+              >
+                {expansionIcon || " "} {/* 하위 항목이 없으면 공백 문자 */}
+              </button>
 
-            {/* 체크박스 - 이제 들여쓰기 불필요 (플레이스홀더로 정렬됨) */}
-            <button
-              onClick={handleToggle}
-              disabled={isLoading}
-              style={styles.checkboxButton}
-              aria-label={todo.isDone ? "완료 취소" : "완료"}
-            >
-              {checkboxIcon}
-            </button>
+              {/* 체크박스 - 이제 들여쓰기 불필요 (플레이스홀더로 정렬됨) */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleToggle();
+                }}
+                disabled={isLoading}
+                style={styles.checkboxButton}
+                aria-label={todo.isDone ? "완료 취소" : "완료"}
+              >
+                {checkboxIcon}
+              </button>
 
-            {/* 제목 또는 수정 입력 */}
-            <TodoItemContent
-              todo={todo}
-              isEditing={isEditing}
-              editTitle={editTitle}
-              onTitleChange={setEditTitle}
-              onSave={handleSaveEdit}
-              onCancel={handleCancelEdit}
-              onDoubleClick={() => setIsEditing(true)}
-            />
+              {/* 제목 또는 수정 입력 */}
+              <TodoItemContent
+                todo={todo}
+                isEditing={isEditing}
+                editTitle={editTitle}
+                onTitleChange={setEditTitle}
+                onSave={handleSaveEdit}
+                onCancel={handleCancelEdit}
+                onDoubleClick={() => setIsEditing(true)}
+              />
+            </div>
 
-            {/* 액션 버튼들 */}
-            <TodoItemActions
-              isEditing={isEditing}
-              onEdit={() => setIsEditing(true)}
-              onAddChild={() => setIsAddingChild(true)}
-              onCopy={handleCopyAsMarkdown}
-              onDelete={handleDelete}
-              showActions={showActions}
-              level={level}
-              maxLevel={MAX_HIERARCHY_LEVEL}
-            />
+            {/* 액션 버튼들 - 제목 아래에 표시 */}
+            {showActions && (
+              <div
+                style={{
+                  display: "flex",
+                  marginTop: currentTheme.spacing["2"],
+                  paddingLeft: `${level * 16 + 44}px`, // 제목과 동일한 들여쓰기
+                }}
+              >
+                <TodoItemActions
+                  isEditing={isEditing}
+                  onEdit={() => setIsEditing(true)}
+                  onAddChild={() => setIsAddingChild(true)}
+                  onCopy={handleCopyAsMarkdown}
+                  onDelete={handleDelete}
+                  level={level}
+                  maxLevel={MAX_HIERARCHY_LEVEL}
+                />
+              </div>
+            )}
           </div>
         </div>
 
@@ -264,36 +288,16 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = React.memo(
 
         {/* 자식 항목 추가 UI */}
         {isAddingChild && level < MAX_HIERARCHY_LEVEL && (
-          <div style={styles.addChild}>
-            <Input
-              placeholder="하위 항목 제목을 입력하세요..."
-              value={newChildTitle}
-              onChange={(e) => setNewChildTitle(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleAddChild();
-                if (e.key === "Escape") {
-                  setNewChildTitle("");
-                  setIsAddingChild(false);
-                }
-              }}
-              style={{ flex: 1 }}
-              autoFocus
-              aria-label="하위 항목 제목 입력"
-            />
-            <Button variant="primary" size="sm" onClick={handleAddChild}>
-              추가
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                setNewChildTitle("");
-                setIsAddingChild(false);
-              }}
-            >
-              취소
-            </Button>
-          </div>
+          <AddChildInput
+            value={newChildTitle}
+            onChange={setNewChildTitle}
+            onSave={handleAddChild}
+            onCancel={() => {
+              setNewChildTitle("");
+              setIsAddingChild(false);
+            }}
+            level={level}
+          />
         )}
 
         {/* 자식 항목들 (재귀 렌더링) */}

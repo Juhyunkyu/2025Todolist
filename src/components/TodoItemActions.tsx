@@ -8,7 +8,6 @@ interface TodoItemActionsProps {
   onAddChild: () => void;
   onCopy: () => void;
   onDelete: () => void;
-  showActions: boolean;
   level?: number; // 계층 레벨 추가
   maxLevel?: number; // 최대 계층 레벨 추가
 }
@@ -19,7 +18,6 @@ const TodoItemActions: React.FC<TodoItemActionsProps> = ({
   onAddChild,
   onCopy,
   onDelete,
-  showActions,
   level = 0,
   maxLevel = 2,
 }) => {
@@ -32,23 +30,23 @@ const TodoItemActions: React.FC<TodoItemActionsProps> = ({
     display: "flex",
     gap: currentTheme.spacing["1"],
     alignItems: "center",
-    opacity: showActions ? 1 : 0,
-    transition: `opacity ${currentTheme.animation.duration.fast} ${currentTheme.animation.easing.default}`,
-    position: "absolute",
-    right: 0,
-    top: "50%",
-    transform: "translateY(-50%)",
-    backgroundColor: currentTheme.colors.background.primary,
-    padding: currentTheme.spacing["1"],
-    borderRadius: currentTheme.borderRadius.sm,
+    padding: currentTheme.spacing["2"],
+    backgroundColor: currentTheme.colors.background.secondary,
+    borderRadius: currentTheme.borderRadius.md,
+    border: `1px solid ${currentTheme.colors.border.muted}`,
+    boxShadow: `0 1px 3px rgba(0, 0, 0, 0.1)`,
   };
 
   const buttonStyle = {
-    minWidth: "24px",
-    width: "24px",
-    height: "24px",
+    minWidth: "28px",
+    width: "28px",
+    height: "28px",
     padding: "0",
     fontSize: "12px",
+    backgroundColor: currentTheme.colors.background.primary,
+    border: `1px solid ${currentTheme.colors.border.muted}`,
+    borderRadius: currentTheme.borderRadius.sm,
+    transition: `all ${currentTheme.animation.duration.fast} ${currentTheme.animation.easing.default}`,
   };
 
   return (
@@ -56,7 +54,10 @@ const TodoItemActions: React.FC<TodoItemActionsProps> = ({
       <Button
         variant="ghost"
         size="sm"
-        onClick={onEdit}
+        onClick={(e) => {
+          e.stopPropagation();
+          onEdit();
+        }}
         style={buttonStyle}
         aria-label="편집"
       >
@@ -66,7 +67,10 @@ const TodoItemActions: React.FC<TodoItemActionsProps> = ({
         <Button
           variant="ghost"
           size="sm"
-          onClick={onAddChild}
+          onClick={(e) => {
+            e.stopPropagation();
+            onAddChild();
+          }}
           style={buttonStyle}
           aria-label="하위 항목 추가"
         >
@@ -76,7 +80,10 @@ const TodoItemActions: React.FC<TodoItemActionsProps> = ({
       <Button
         variant="ghost"
         size="sm"
-        onClick={onCopy}
+        onClick={(e) => {
+          e.stopPropagation();
+          onCopy();
+        }}
         style={buttonStyle}
         aria-label="복사"
       >
@@ -85,7 +92,10 @@ const TodoItemActions: React.FC<TodoItemActionsProps> = ({
       <Button
         variant="ghost"
         size="sm"
-        onClick={onDelete}
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete();
+        }}
         style={buttonStyle}
         aria-label="삭제"
       >
