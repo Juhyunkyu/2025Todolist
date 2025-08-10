@@ -7,27 +7,120 @@ interface CalendarProps {
   onDateSelect?: (date: string) => void;
   onClose?: () => void;
   className?: string;
+  showHolidays?: boolean; // 공휴일 표시 여부
+  locale?: "ko" | "en"; // 지역 설정
 }
 
 // 상수 정의
 const WEEK_DAYS = ["일", "월", "화", "수", "목", "금", "토"] as const;
-const CALENDAR_GRID_SIZE = 42; // 6주 x 7일
+const DAYS_IN_WEEK = 7;
+const WEEKS_IN_MONTH = 6;
+const CALENDAR_GRID_SIZE = DAYS_IN_WEEK * WEEKS_IN_MONTH; // 42
+const DAY_BUTTON_SIZE = 42;
+const MOBILE_BREAKPOINT = 768;
+const MOBILE_MIN_WIDTH = 320;
+const DESKTOP_MIN_WIDTH = 380;
+const MAX_WIDTH = 480;
+const MAX_HEIGHT_VH = 90;
+
+// 날짜를 YYYY-MM-DD 형식으로 변환하는 유틸리티 함수
+const formatDateToYYYYMMDD = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+// 윤년 확인 함수
+const isLeapYear = (year: number): boolean => {
+  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+};
+
+// 한국 공휴일 계산 함수 (동적 계산)
+const getKoreanHolidays = (year: number, month: number): number[] => {
+  const holidays: number[] = [];
+
+  // 양력 고정 공휴일
+  const fixedHolidays: { [key: string]: number[] } = {
+    "1": [1], // 신정
+    "3": [1], // 삼일절
+    "5": [5], // 어린이날
+    "6": [6], // 현충일
+    "8": [15], // 광복절
+    "10": [3, 9], // 개천절, 한글날
+    "12": [25], // 크리스마스
+  };
+
+  // 고정 공휴일 추가
+  const monthHolidays = fixedHolidays[month.toString()] || [];
+  holidays.push(...monthHolidays);
+
+  // 대체공휴일 계산 (어린이날이 주말인 경우)
+  if (month === 5 && year >= 2014) {
+    const childrensDay = new Date(year, 4, 5); // 5월 5일 (0-based month)
+    const dayOfWeek = childrensDay.getDay();
+
+    // 어린이날이 일요일이면 월요일, 토요일이면 월요일이 대체공휴일
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      const substituteDay = dayOfWeek === 0 ? 6 : 7; // 다음 월요일
+      holidays.push(substituteDay);
+    }
+  }
+
+  // 광복절 대체공휴일 (2021년부터)
+  if (month === 8 && year >= 2021) {
+    const liberationDay = new Date(year, 7, 15); // 8월 15일
+    const dayOfWeek = liberationDay.getDay();
+
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      const substituteDay = dayOfWeek === 0 ? 16 : 17; // 다음 월요일
+      holidays.push(substituteDay);
+    }
+  }
+
+  // 개천절 대체공휴일 (2022년부터)
+  if (month === 10 && year >= 2022) {
+    const foundationDay = new Date(year, 9, 3); // 10월 3일
+    const dayOfWeek = foundationDay.getDay();
+
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      const substituteDay = dayOfWeek === 0 ? 4 : 5; // 다음 월요일
+      holidays.push(substituteDay);
+    }
+  }
+
+  // 한글날 대체공휴일 (2013년부터)
+  if (month === 10 && year >= 2013) {
+    const hangulDay = new Date(year, 9, 9); // 10월 9일
+    const dayOfWeek = hangulDay.getDay();
+
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      const substituteDay = dayOfWeek === 0 ? 10 : 11; // 다음 월요일
+      holidays.push(substituteDay);
+    }
+  }
+
+  return [...new Set(holidays)]; // 중복 제거
+};
+
+// 날짜 객체 타입 정의
+interface DayData {
+  date: Date;
+  isCurrentMonth: boolean;
+  isToday: boolean;
+  isSelected: boolean;
+  isHoliday?: boolean;
+}
 
 const Calendar: React.FC<CalendarProps> = ({
   selectedDate,
   onDateSelect,
   onClose,
   className = "",
+  showHolidays = true,
+  locale = "ko",
 }) => {
   const { currentTheme } = useTheme();
-
-  // 날짜를 YYYY-MM-DD 형식으로 변환하는 함수 (시간대 문제 해결)
-  const formatDateToYYYYMMDD = useCallback((date: Date): string => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  }, []);
 
   const [currentDate, setCurrentDate] = useState(() => {
     if (selectedDate) {
@@ -53,7 +146,7 @@ const Calendar: React.FC<CalendarProps> = ({
 
   // 달력에 표시할 모든 날짜 계산
   const calendarDays = useMemo(() => {
-    const days = [];
+    const days: DayData[] = [];
 
     // 이전 달의 마지막 날들
     const firstDayWeekday = firstDayOfMonth.getDay();
@@ -65,10 +158,17 @@ const Calendar: React.FC<CalendarProps> = ({
         isCurrentMonth: false,
         isToday: false,
         isSelected: false,
+        isHoliday: false,
       });
     }
 
     // 현재 달의 모든 날들
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = currentDate.getMonth() + 1;
+    const holidays = showHolidays
+      ? getKoreanHolidays(currentYear, currentMonth)
+      : [];
+
     for (let i = 1; i <= lastDayOfMonth.getDate(); i++) {
       const date = new Date(
         currentDate.getFullYear(),
@@ -78,22 +178,21 @@ const Calendar: React.FC<CalendarProps> = ({
       const today = new Date();
       const isToday = date.toDateString() === today.toDateString();
       const isSelected = selectedDate
-        ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
-            2,
-            "0"
-          )}-${String(date.getDate()).padStart(2, "0")}` === selectedDate
+        ? formatDateToYYYYMMDD(date) === selectedDate
         : false;
+      const isHoliday = holidays.includes(i);
 
       days.push({
         date,
         isCurrentMonth: true,
         isToday,
         isSelected,
+        isHoliday,
       });
     }
 
     // 다음 달의 첫 번째 날들 (6주 완성)
-    const remainingDays = 42 - days.length;
+    const remainingDays = CALENDAR_GRID_SIZE - days.length;
     for (let i = 1; i <= remainingDays; i++) {
       const nextDate = new Date(lastDayOfMonth);
       nextDate.setDate(nextDate.getDate() + i);
@@ -102,6 +201,7 @@ const Calendar: React.FC<CalendarProps> = ({
         isCurrentMonth: false,
         isToday: false,
         isSelected: false,
+        isHoliday: false,
       });
     }
 
@@ -111,28 +211,8 @@ const Calendar: React.FC<CalendarProps> = ({
     firstDayOfMonth,
     lastDayOfMonth,
     selectedDate,
-    formatDateToYYYYMMDD,
+    showHolidays,
   ]);
-
-  // 한국 공휴일 목록 (2025년 기준)
-  const getHolidays = useCallback((year: number, month: number): number[] => {
-    const holidays: { [key: string]: number[] } = {
-      "1": [1], // 신정
-      "2": [], // 없음
-      "3": [1], // 삼일절
-      "4": [], // 없음
-      "5": [5], // 어린이날
-      "6": [6], // 현충일
-      "7": [], // 없음
-      "8": [15], // 광복절
-      "9": [], // 없음
-      "10": [3, 9], // 개천절, 한글날
-      "11": [], // 없음
-      "12": [25], // 크리스마스
-    };
-
-    return holidays[month.toString()] || [];
-  }, []);
 
   // 월 이동 함수들
   const goToPreviousMonth = useCallback(() => {
@@ -153,7 +233,7 @@ const Calendar: React.FC<CalendarProps> = ({
     if (onDateSelect) {
       onDateSelect(formatDateToYYYYMMDD(today));
     }
-  }, [onDateSelect, formatDateToYYYYMMDD]);
+  }, [onDateSelect]);
 
   // 날짜 선택 핸들러
   const handleDateClick = useCallback(
@@ -162,23 +242,24 @@ const Calendar: React.FC<CalendarProps> = ({
         onDateSelect(formatDateToYYYYMMDD(date));
       }
     },
-    [onDateSelect, formatDateToYYYYMMDD]
+    [onDateSelect]
   );
 
   // 스타일 정의
   const containerStyles: React.CSSProperties = useMemo(() => {
     const isDarkMode = currentTheme.colors.background.primary === "#000000";
-    const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+    const isMobile =
+      typeof window !== "undefined" && window.innerWidth < MOBILE_BREAKPOINT;
 
     return {
       backgroundColor: currentTheme.colors.background.primary,
       borderRadius: currentTheme.borderRadius.xl,
       boxShadow: currentTheme.shadows.xl,
       padding: isMobile ? currentTheme.spacing["6"] : currentTheme.spacing["8"],
-      minWidth: isMobile ? "320px" : "380px",
-      maxWidth: "480px",
+      minWidth: isMobile ? `${MOBILE_MIN_WIDTH}px` : `${DESKTOP_MIN_WIDTH}px`,
+      maxWidth: `${MAX_WIDTH}px`,
       width: "100%",
-      maxHeight: "90vh",
+      maxHeight: `${MAX_HEIGHT_VH}vh`,
       border: `2px solid ${
         isDarkMode
           ? currentTheme.colors.border.accent
@@ -216,22 +297,14 @@ const Calendar: React.FC<CalendarProps> = ({
     [currentTheme]
   );
 
-  const navigationStyles: React.CSSProperties = useMemo(
-    () => ({
-      display: "flex",
-      gap: currentTheme.spacing["2"],
-      width: "100%",
-      justifyContent: "space-between",
-    }),
-    [currentTheme]
-  );
-
   const weekDaysContainerStyles: React.CSSProperties = useMemo(
     () => ({
       display: "grid",
-      gridTemplateColumns: "repeat(7, 1fr)",
-      gap: currentTheme.spacing["1"],
+      gridTemplateColumns: `repeat(${DAYS_IN_WEEK}, 1fr)`,
+      gap: currentTheme.spacing["2"],
       marginBottom: currentTheme.spacing["4"],
+      width: "100%",
+      placeItems: "center",
     }),
     [currentTheme]
   );
@@ -242,7 +315,13 @@ const Calendar: React.FC<CalendarProps> = ({
       fontSize: currentTheme.typography.fontSize.sm,
       fontWeight: currentTheme.typography.fontWeight.medium,
       color: currentTheme.colors.text.secondary,
-      padding: currentTheme.spacing["2"],
+      height: `${DAY_BUTTON_SIZE}px`,
+      width: `${DAY_BUTTON_SIZE}px`,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "0",
+      boxSizing: "border-box",
     }),
     [currentTheme]
   );
@@ -250,40 +329,34 @@ const Calendar: React.FC<CalendarProps> = ({
   const daysContainerStyles: React.CSSProperties = useMemo(
     () => ({
       display: "grid",
-      gridTemplateColumns: "repeat(7, 1fr)",
+      gridTemplateColumns: `repeat(${DAYS_IN_WEEK}, 1fr)`,
       gap: currentTheme.spacing["2"],
-      justifyContent: "center",
-      alignItems: "center",
+      width: "100%",
+      placeItems: "center",
     }),
     [currentTheme]
   );
 
-  const dayButtonStyles = useCallback(
-    (day: {
-      date: Date;
-      isCurrentMonth: boolean;
-      isToday: boolean;
-      isSelected: boolean;
-    }): React.CSSProperties => {
+  // 날짜 버튼 스타일 계산 함수
+  const getDayButtonStyles = useCallback(
+    (day: DayData): React.CSSProperties => {
+      const { date, isCurrentMonth, isToday, isSelected, isHoliday } = day;
+
+      // 기본 스타일
       let color = currentTheme.colors.text.primary;
       let backgroundColor = "transparent";
       let opacity = 1;
 
-      if (!day.isCurrentMonth) {
+      // 이전/다음 달 날짜 처리
+      if (!isCurrentMonth) {
         color = currentTheme.colors.text.tertiary;
-        opacity = 0.4; // 이전/다음 달 날짜를 더 투명하게
+        opacity = 0.4;
       } else {
         // 요일별 색상 및 공휴일 처리
-        const dayOfWeek = day.date.getDay();
-        const currentMonth = day.date.getMonth() + 1;
-        const currentDay = day.date.getDate();
-        const holidays = getHolidays(day.date.getFullYear(), currentMonth);
+        const dayOfWeek = date.getDay();
 
-        if (holidays.includes(currentDay)) {
-          // 공휴일은 빨간색
-          color = currentTheme.colors.status.error;
-        } else if (dayOfWeek === 0) {
-          // 일요일은 빨간색
+        if (isHoliday || dayOfWeek === 0) {
+          // 공휴일 또는 일요일은 빨간색
           color = currentTheme.colors.status.error;
         } else if (dayOfWeek === 6) {
           // 토요일은 파란색
@@ -291,11 +364,12 @@ const Calendar: React.FC<CalendarProps> = ({
         }
       }
 
-      if (day.isSelected) {
+      // 선택된 날짜 또는 오늘 처리
+      if (isSelected) {
         backgroundColor = currentTheme.colors.primary.brand;
         color = currentTheme.colors.text.inverse;
-        opacity = 1; // 선택된 날짜는 완전 불투명
-      } else if (day.isToday) {
+        opacity = 1;
+      } else if (isToday) {
         backgroundColor = currentTheme.colors.background.tertiary;
         color = currentTheme.colors.primary.brand;
       }
@@ -304,14 +378,14 @@ const Calendar: React.FC<CalendarProps> = ({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        width: "42px",
-        height: "42px",
+        width: `${DAY_BUTTON_SIZE}px`,
+        height: `${DAY_BUTTON_SIZE}px`,
         borderRadius: "50%",
-        border: day.isToday
+        border: isToday
           ? `2px solid ${currentTheme.colors.primary.brand}`
           : "2px solid transparent",
         background: "none",
-        cursor: day.isCurrentMonth ? "pointer" : "default",
+        cursor: isCurrentMonth ? "pointer" : "default",
         fontSize: currentTheme.typography.fontSize.base,
         fontWeight: currentTheme.typography.fontWeight.medium,
         transition: `all ${currentTheme.animation.duration.fast} ${currentTheme.animation.easing.default}`,
@@ -319,9 +393,12 @@ const Calendar: React.FC<CalendarProps> = ({
         backgroundColor,
         opacity,
         transform: "scale(1)",
+        margin: "0",
+        padding: "0",
+        boxSizing: "border-box",
       };
     },
-    [currentTheme, getHolidays]
+    [currentTheme]
   );
 
   const footerStyles: React.CSSProperties = useMemo(
@@ -341,9 +418,19 @@ const Calendar: React.FC<CalendarProps> = ({
       <div style={headerStyles}>
         <Button
           variant="ghost"
-          size="sm"
+          size="lg"
           onClick={goToPreviousMonth}
-          style={{ padding: currentTheme.spacing["2"] }}
+          style={{
+            padding: currentTheme.spacing["3"],
+            fontSize: currentTheme.typography.fontSize.xl,
+            fontWeight: currentTheme.typography.fontWeight.bold,
+            minWidth: "48px",
+            height: "48px",
+            borderRadius: "50%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
         >
           ‹
         </Button>
@@ -352,9 +439,19 @@ const Calendar: React.FC<CalendarProps> = ({
         </div>
         <Button
           variant="ghost"
-          size="sm"
+          size="lg"
           onClick={goToNextMonth}
-          style={{ padding: currentTheme.spacing["2"] }}
+          style={{
+            padding: currentTheme.spacing["3"],
+            fontSize: currentTheme.typography.fontSize.xl,
+            fontWeight: currentTheme.typography.fontWeight.bold,
+            minWidth: "48px",
+            height: "48px",
+            borderRadius: "50%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
         >
           ›
         </Button>
@@ -385,7 +482,7 @@ const Calendar: React.FC<CalendarProps> = ({
         {calendarDays.map((day, index) => (
           <button
             key={index}
-            style={dayButtonStyles(day)}
+            style={getDayButtonStyles(day)}
             onClick={() => handleDateClick(day.date)}
             disabled={!day.isCurrentMonth}
           >
