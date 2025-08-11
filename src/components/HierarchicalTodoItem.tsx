@@ -242,7 +242,7 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = React.memo(
 
     // 확장/축소 아이콘 (간단한 계산이므로 useMemo 불필요)
     const expansionIcon =
-      todo.children.length > 0 ? (
+      children.length > 0 ? (
         todo.isExpanded ? (
           <CollapseIcon size={16} color={currentTheme.colors.text.secondary} />
         ) : (
@@ -308,23 +308,23 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = React.memo(
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (todo.children.length > 0) {
+                  if (children.length > 0) {
                     handleExpansionToggle();
                   }
                 }}
                 style={{
                   ...styles.expansionButton,
-                  opacity: todo.children.length > 0 ? 1 : 0, // 하위 항목이 없으면 투명하게
-                  cursor: todo.children.length > 0 ? "pointer" : "default",
+                  opacity: children.length > 0 ? 1 : 0, // 하위 항목이 없으면 투명하게
+                  cursor: children.length > 0 ? "pointer" : "default",
                 }}
                 aria-label={
-                  todo.children.length > 0
+                  children.length > 0
                     ? todo.isExpanded
                       ? "접기"
                       : "펼치기"
                     : ""
                 }
-                disabled={todo.children.length === 0}
+                disabled={children.length === 0}
               >
                 {expansionIcon || " "} {/* 하위 항목이 없으면 공백 문자 */}
               </button>

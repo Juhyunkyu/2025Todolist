@@ -63,15 +63,17 @@ export const useHierarchicalTodoItem = ({ todo, onUpdate, level = 0 }: UseHierar
 
   // 자식 항목들 로드
   const loadChildren = useCallback(async () => {
-    if (todo.children.length > 0 && todo.isExpanded) {
+    if (todo.isExpanded) {
       try {
         const childTodos = await getHierarchicalTodosByParent(todo.id);
         setChildren(childTodos);
       } catch (error) {
         setError("자식 항목을 불러오는데 실패했습니다.");
       }
+    } else {
+      setChildren([]);
     }
-  }, [todo.id, todo.children.length, todo.isExpanded]);
+  }, [todo.id, todo.isExpanded]);
 
   // 컴포넌트 마운트 시 자식들 로드
   useEffect(() => {
@@ -95,7 +97,7 @@ export const useHierarchicalTodoItem = ({ todo, onUpdate, level = 0 }: UseHierar
 
   // 접기/펼치기 토글
   const handleExpansionToggle = useCallback(async () => {
-    if (todo.children.length === 0) return;
+    if (children.length === 0) return;
 
     setError(null);
     try {
@@ -104,7 +106,7 @@ export const useHierarchicalTodoItem = ({ todo, onUpdate, level = 0 }: UseHierar
     } catch (error) {
       setError("펼치기/접기에 실패했습니다.");
     }
-  }, [todo.id, todo.children.length, onUpdate]);
+  }, [todo.id, children.length, onUpdate]);
 
   // 제목 수정 저장
   const handleSaveEdit = useCallback(async () => {
@@ -147,9 +149,14 @@ export const useHierarchicalTodoItem = ({ todo, onUpdate, level = 0 }: UseHierar
         isExpanded: false,
         order: nextOrder,
         tags: [],
-        date: null, // 날짜를 설정하지 않음
+        date: null,
         repeat: "none",
       });
+
+      // 부모 항목이 접혀있다면 펼치기
+      if (!todo.isExpanded) {
+        await toggleHierarchicalTodoExpansion(todo.id);
+      }
 
       setNewChildTitle("");
       setIsAddingChild(false);
@@ -158,14 +165,14 @@ export const useHierarchicalTodoItem = ({ todo, onUpdate, level = 0 }: UseHierar
     } catch (error) {
       setError("자식 항목 추가에 실패했습니다.");
     }
-  }, [newChildTitle, children.length, todo.id, onUpdate, loadChildren, level]);
+  }, [newChildTitle, children.length, todo.id, todo.isExpanded, onUpdate, loadChildren, level]);
 
   // 항목 삭제
   const handleDelete = useCallback(async () => {
     if (
       !confirm(
         `"${todo.title}"을(를) 삭제하시겠습니까?${
-          todo.children.length > 0 ? " (하위 항목들도 함께 삭제됩니다)" : ""
+          children.length > 0 ? " (하위 항목들도 함께 삭제됩니다)" : ""
         }`
       )
     ) {
@@ -176,10 +183,12 @@ export const useHierarchicalTodoItem = ({ todo, onUpdate, level = 0 }: UseHierar
     try {
       await deleteHierarchicalTodo(todo.id);
       onUpdate();
+      // 자식 항목이 삭제되면 children 상태도 초기화
+      setChildren([]);
     } catch (error) {
       setError("삭제에 실패했습니다.");
     }
-  }, [todo.id, todo.title, todo.children.length, onUpdate]);
+  }, [todo.id, todo.title, children.length, onUpdate]);
 
   // 개별 항목 복사
   const handleCopyAsMarkdown = useCallback(async () => {

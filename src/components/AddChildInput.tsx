@@ -21,6 +21,7 @@ const AddChildInput: React.FC<AddChildInputProps> = ({
 }) => {
   const { currentTheme } = useTheme();
   const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // 화면 크기 감지
   const [screenWidth, setScreenWidth] = useState(1200);
@@ -51,17 +52,16 @@ const AddChildInput: React.FC<AddChildInputProps> = ({
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
-        inputRef.current &&
-        !inputRef.current.contains(event.target as Node)
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
       ) {
         onCancel();
       }
     };
 
-    // 약간의 지연을 두어 현재 클릭 이벤트가 처리된 후 외부 클릭 감지
     const timeoutId = setTimeout(() => {
       document.addEventListener("mousedown", handleClickOutside);
-    }, 0);
+    }, 100);
 
     return () => {
       clearTimeout(timeoutId);
@@ -97,7 +97,7 @@ const AddChildInput: React.FC<AddChildInputProps> = ({
   };
 
   return (
-    <div style={containerStyles}>
+    <div ref={containerRef} style={containerStyles}>
       <Input
         ref={inputRef}
         placeholder={placeholder}
@@ -111,7 +111,12 @@ const AddChildInput: React.FC<AddChildInputProps> = ({
         autoFocus
         aria-label="하위 항목 제목 입력"
       />
-      <Button variant="primary" size="sm" onClick={onSave}>
+      <Button
+        variant="primary"
+        size="sm"
+        onClick={onSave}
+        disabled={value.trim() === ""}
+      >
         추가
       </Button>
       <Button variant="secondary" size="sm" onClick={onCancel}>
