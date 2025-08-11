@@ -308,9 +308,7 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = React.memo(
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (children.length > 0) {
-                    handleExpansionToggle();
-                  }
+                  handleExpansionToggle();
                 }}
                 style={{
                   ...styles.expansionButton,

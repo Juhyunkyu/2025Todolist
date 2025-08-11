@@ -1,6 +1,7 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState, useCallback, useEffect } from "react";
 import { Input, Button } from "@/components/ui";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useClickOutside } from "@/hooks/useClickOutside";
 
 interface AddChildInputProps {
   value: string;
@@ -21,7 +22,11 @@ const AddChildInput: React.FC<AddChildInputProps> = ({
 }) => {
   const { currentTheme } = useTheme();
   const inputRef = useRef<HTMLInputElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+
+  // 외부 클릭 감지를 위한 커스텀 훅 사용
+  const containerRef = useClickOutside<HTMLDivElement>({
+    onOutsideClick: onCancel,
+  });
 
   // 화면 크기 감지
   const [screenWidth, setScreenWidth] = useState(1200);
@@ -47,27 +52,6 @@ const AddChildInput: React.FC<AddChildInputProps> = ({
     if (screenWidth >= 400) return `calc(${baseSpacing} * 0.6)`;
     return `calc(${baseSpacing} * 0.4)`;
   };
-
-  // 외부 클릭 감지하여 추가 모드 취소
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
-      ) {
-        onCancel();
-      }
-    };
-
-    const timeoutId = setTimeout(() => {
-      document.addEventListener("mousedown", handleClickOutside);
-    }, 100);
-
-    return () => {
-      clearTimeout(timeoutId);
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [onCancel]);
 
   const containerStyles: React.CSSProperties = {
     display: "flex",
@@ -102,11 +86,17 @@ const AddChildInput: React.FC<AddChildInputProps> = ({
         ref={inputRef}
         placeholder={placeholder}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") onSave();
-          if (e.key === "Escape") onCancel();
-        }}
+        onChange={useCallback(
+          (e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value),
+          [onChange]
+        )}
+        onKeyDown={useCallback(
+          (e: React.KeyboardEvent<HTMLInputElement>) => {
+            if (e.key === "Enter") onSave();
+            if (e.key === "Escape") onCancel();
+          },
+          [onSave, onCancel]
+        )}
         style={{ flex: 1 }}
         autoFocus
         aria-label="하위 항목 제목 입력"
@@ -114,12 +104,20 @@ const AddChildInput: React.FC<AddChildInputProps> = ({
       <Button
         variant="primary"
         size="sm"
-        onClick={onSave}
+        onClick={useCallback(() => {
+          if (value.trim() !== "") {
+            onSave();
+          }
+        }, [value, onSave])}
         disabled={value.trim() === ""}
       >
         추가
       </Button>
-      <Button variant="secondary" size="sm" onClick={onCancel}>
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={useCallback(() => onCancel(), [onCancel])}
+      >
         취소
       </Button>
     </div>

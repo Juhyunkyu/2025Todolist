@@ -63,17 +63,13 @@ export const useHierarchicalTodoItem = ({ todo, onUpdate, level = 0 }: UseHierar
 
   // 자식 항목들 로드
   const loadChildren = useCallback(async () => {
-    if (todo.isExpanded) {
-      try {
-        const childTodos = await getHierarchicalTodosByParent(todo.id);
-        setChildren(childTodos);
-      } catch (error) {
-        setError("자식 항목을 불러오는데 실패했습니다.");
-      }
-    } else {
-      setChildren([]);
+    try {
+      const childTodos = await getHierarchicalTodosByParent(todo.id);
+      setChildren(childTodos);
+    } catch (error) {
+      setError("자식 항목을 불러오는데 실패했습니다.");
     }
-  }, [todo.id, todo.isExpanded]);
+  }, [todo.id]);
 
   // 컴포넌트 마운트 시 자식들 로드
   useEffect(() => {
@@ -97,8 +93,6 @@ export const useHierarchicalTodoItem = ({ todo, onUpdate, level = 0 }: UseHierar
 
   // 접기/펼치기 토글
   const handleExpansionToggle = useCallback(async () => {
-    if (children.length === 0) return;
-
     setError(null);
     try {
       await toggleHierarchicalTodoExpansion(todo.id);
@@ -106,7 +100,7 @@ export const useHierarchicalTodoItem = ({ todo, onUpdate, level = 0 }: UseHierar
     } catch (error) {
       setError("펼치기/접기에 실패했습니다.");
     }
-  }, [todo.id, children.length, onUpdate]);
+  }, [todo.id, onUpdate]);
 
   // 제목 수정 저장
   const handleSaveEdit = useCallback(async () => {
