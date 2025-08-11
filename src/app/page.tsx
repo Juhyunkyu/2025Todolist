@@ -12,7 +12,6 @@ import type { HierarchicalTodo } from "@/components/HierarchicalTodoItem";
 import {
   getHierarchicalTodosByParent,
   addHierarchicalTodo,
-  getHierarchicalTodoProgress,
   getGroups,
   addGroup,
   forceResetDatabase,
@@ -189,7 +188,7 @@ function HomeContent() {
     }
 
     return filtered;
-  }, [todos, activeFilter, searchQuery]);
+  }, [todos, activeFilter, searchQuery, groups]);
 
   // 할일 추가
   const handleAddTodo = useCallback(
@@ -493,8 +492,6 @@ function HomeContent() {
                     ? dateUtils.getTodayDate()
                     : undefined
                 }
-                activeFilter={activeFilter}
-                groups={groups}
               />
             )}
 

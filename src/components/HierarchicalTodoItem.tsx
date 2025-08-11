@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo, useState, useCallback } from "react";
-import { Button, Input } from "@/components/ui";
+import { Button } from "@/components/ui";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useHierarchicalTodoItem } from "@/hooks/useHierarchicalTodoItem";
 import TodoItemActions from "./TodoItemActions";
@@ -60,7 +60,7 @@ interface HierarchicalTodoItemProps {
 }
 
 const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = React.memo(
-  ({ todo, level = 0, onUpdate, isLast = false }) => {
+  ({ todo, level = 0, onUpdate }) => {
     const { currentTheme } = useTheme();
 
     // 커스텀 훅 사용
@@ -91,25 +91,6 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = React.memo(
 
     // 최상위 할일 수정 모드 상태
     const [isFullEditMode, setIsFullEditMode] = useState(false);
-
-    // 최상위 할일 수정 핸들러
-    const handleFullEditSave = useCallback(
-      async (updates: {
-        title: string;
-        date: string | null;
-        alarmTime?: string;
-        isPinned?: boolean;
-      }) => {
-        try {
-          // 기존 수정 로직과 통합
-          await handleSaveEdit();
-          setIsFullEditMode(false);
-        } catch (error) {
-          console.error("Failed to save todo:", error);
-        }
-      },
-      [handleSaveEdit]
-    );
 
     const handleFullEditCancel = useCallback(() => {
       setIsFullEditMode(false);
@@ -151,12 +132,15 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = React.memo(
     const isMobile = screenWidth < 400;
 
     // 동적 여백 계산
-    const getDynamicSpacing = (baseSpacing: string) => {
-      if (screenWidth >= 1200) return baseSpacing;
-      if (screenWidth >= 768) return `calc(${baseSpacing} * 0.8)`;
-      if (screenWidth >= 400) return `calc(${baseSpacing} * 0.6)`;
-      return `calc(${baseSpacing} * 0.4)`;
-    };
+    const getDynamicSpacing = useCallback(
+      (baseSpacing: string) => {
+        if (screenWidth >= 1200) return baseSpacing;
+        if (screenWidth >= 768) return `calc(${baseSpacing} * 0.8)`;
+        if (screenWidth >= 400) return `calc(${baseSpacing} * 0.6)`;
+        return `calc(${baseSpacing} * 0.4)`;
+      },
+      [screenWidth]
+    );
 
     // 스타일 계산 (메모이제이션)
     const styles = useMemo(
@@ -167,7 +151,9 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = React.memo(
           zIndex: isDragging ? 1000 : 1,
           display: "flex",
           alignItems: "center",
-          padding: `${getDynamicSpacing(currentTheme.spacing["2"])} 0`,
+          paddingTop: getDynamicSpacing(currentTheme.spacing["2"]),
+          paddingBottom: getDynamicSpacing(currentTheme.spacing["2"]),
+          paddingRight: 0,
           marginLeft: isMobile ? `${level * 8}px` : `${level * 16}px`, // 모바일에서 들여쓰기 줄임
           backgroundColor: currentTheme.colors.background.primary,
           transition: `all ${currentTheme.animation.duration.fast} ${currentTheme.animation.easing.default}`,
@@ -243,7 +229,15 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = React.memo(
           paddingLeft: currentTheme.spacing["6"],
         },
       }),
-      [currentTheme, level, todo.isDone, transform, isDragging]
+      [
+        currentTheme,
+        level,
+        todo.isDone,
+        transform,
+        isDragging,
+        getDynamicSpacing,
+        isMobile,
+      ]
     );
 
     // 확장/축소 아이콘 (간단한 계산이므로 useMemo 불필요)
@@ -272,7 +266,15 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = React.memo(
           isEditMode={true}
           editTodo={todo}
           onAdd={() => {}} // 수정 모드에서는 사용되지 않음
-          onEdit={handleFullEditSave}
+          onEdit={async () => {
+            try {
+              // 기존 수정 로직과 통합
+              await handleSaveEdit();
+              setIsFullEditMode(false);
+            } catch (error) {
+              console.error("Failed to save todo:", error);
+            }
+          }}
           onCancel={handleFullEditCancel}
         />
       );
@@ -370,7 +372,6 @@ const HierarchicalTodoItem: React.FC<HierarchicalTodoItemProps> = React.memo(
                     }}
                   >
                     <TodoItemActions
-                      isEditing={isEditing}
                       onEdit={() => {
                         if (level === 0) {
                           // 최상위 할일이면 전체 수정 모드로 전환

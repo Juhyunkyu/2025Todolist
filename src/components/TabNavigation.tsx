@@ -40,18 +40,6 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
   containerId = "tab-navigation",
 }) => {
   const { currentTheme } = useTheme();
-  const [isLargeScreen, setIsLargeScreen] = React.useState(false);
-
-  // 화면 크기 감지
-  React.useEffect(() => {
-    const checkScreenSize = () => {
-      setIsLargeScreen(window.innerWidth > 1200); // page.tsx와 동일한 기준
-    };
-
-    checkScreenSize();
-    window.addEventListener("resize", checkScreenSize);
-    return () => window.removeEventListener("resize", checkScreenSize);
-  }, []);
 
   // 컨테이너 스타일 메모이제이션
   const containerStyles: React.CSSProperties = useMemo(

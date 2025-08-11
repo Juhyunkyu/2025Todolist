@@ -8,7 +8,7 @@ interface AddChildInputProps {
   onSave: () => void;
   onCancel: () => void;
   placeholder?: string;
-  level: number;
+  level?: number;
 }
 
 const AddChildInput: React.FC<AddChildInputProps> = ({
@@ -17,7 +17,7 @@ const AddChildInput: React.FC<AddChildInputProps> = ({
   onSave,
   onCancel,
   placeholder = "하위 항목 제목을 입력하세요...",
-  level,
+  level = 0,
 }) => {
   const { currentTheme } = useTheme();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -75,13 +75,25 @@ const AddChildInput: React.FC<AddChildInputProps> = ({
       ? getDynamicSpacing(currentTheme.spacing["1"])
       : getDynamicSpacing(currentTheme.spacing["2"]),
     alignItems: "center",
-    padding: isMobile
+    paddingTop: isMobile
       ? getDynamicSpacing(currentTheme.spacing["1"])
       : getDynamicSpacing(currentTheme.spacing["2"]),
-    paddingLeft: 0, // 제목과 동일한 위치에 맞춤
+    paddingBottom: isMobile
+      ? getDynamicSpacing(currentTheme.spacing["1"])
+      : getDynamicSpacing(currentTheme.spacing["2"]),
+    paddingRight: isMobile
+      ? getDynamicSpacing(currentTheme.spacing["1"])
+      : getDynamicSpacing(currentTheme.spacing["2"]),
+    paddingLeft:
+      level > 0
+        ? isMobile
+          ? getDynamicSpacing(currentTheme.spacing["2"])
+          : getDynamicSpacing(currentTheme.spacing["3"])
+        : 0, // 할일 목록과 동일한 들여쓰기 적용
     backgroundColor: currentTheme.colors.background.secondary,
     borderRadius: currentTheme.borderRadius.md,
     marginTop: getDynamicSpacing(currentTheme.spacing["1"]),
+    marginLeft: isMobile ? `${(level + 1) * 8}px` : `${(level + 1) * 16}px`, // 할일 목록과 동일한 들여쓰기
   };
 
   return (

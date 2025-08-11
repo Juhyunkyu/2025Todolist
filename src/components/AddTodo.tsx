@@ -28,9 +28,6 @@ interface AddTodoProps {
     alarmTime?: string;
     isPinned?: boolean;
   }) => void;
-  // 그룹 관련 props 추가
-  activeFilter?: string;
-  groups?: Array<{ id: string; name: string; color?: string }>;
 }
 
 // 세련된 SVG 아이콘들
@@ -146,8 +143,6 @@ const AddTodo: React.FC<AddTodoProps> = ({
   isEditMode = false,
   editTodo,
   onEdit,
-  activeFilter,
-  groups = [],
 }) => {
   const { currentTheme } = useTheme();
   const [title, setTitle] = useState(
@@ -201,21 +196,6 @@ const AddTodo: React.FC<AddTodoProps> = ({
       setIsDateSelected(targetDate !== today && targetDate !== tomorrow);
     }
   }, [initialDate, editTodo, isEditMode, getTodayString, getTomorrowString]);
-
-  // 날짜 선택 핸들러들
-  const handleDatePickerChange = useCallback(
-    (selectedDate: string) => {
-      setDate(selectedDate);
-      setIsDateSelected(true);
-
-      const today = getTodayString();
-      const tomorrow = getTomorrowString();
-
-      setIsTodaySelected(selectedDate === today);
-      setIsTomorrowSelected(selectedDate === tomorrow);
-    },
-    [getTodayString, getTomorrowString]
-  );
 
   const handleTodayClick = useCallback(() => {
     const today = getTodayString();
@@ -302,13 +282,6 @@ const AddTodo: React.FC<AddTodoProps> = ({
       if (title.trim() === "") return;
 
       // 현재 선택된 그룹 확인
-      let groupTags: string[] = [];
-      if (activeFilter && activeFilter !== "all") {
-        const selectedGroup = groups.find((g) => g.id === activeFilter);
-        if (selectedGroup) {
-          groupTags = [selectedGroup.name];
-        }
-      }
 
       const todoData = {
         title: title.trim(),
@@ -323,17 +296,7 @@ const AddTodo: React.FC<AddTodoProps> = ({
         onAdd(todoData);
       }
     },
-    [
-      title,
-      date,
-      alarmTime,
-      isPinned,
-      onAdd,
-      onEdit,
-      isEditMode,
-      activeFilter,
-      groups,
-    ]
+    [title, date, alarmTime, isPinned, onAdd, onEdit, isEditMode]
   );
 
   // 스타일 정의

@@ -4,7 +4,6 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { EditIcon, AddIcon, CopyIcon, DeleteIcon } from "./icons/ActionIcons";
 
 interface TodoItemActionsProps {
-  isEditing: boolean;
   onEdit: () => void;
   onAddChild: () => void;
   onCopy: () => void;
@@ -14,7 +13,6 @@ interface TodoItemActionsProps {
 }
 
 const TodoItemActions: React.FC<TodoItemActionsProps> = ({
-  isEditing,
   onEdit,
   onAddChild,
   onCopy,

@@ -19,13 +19,11 @@ const Header: React.FC<HeaderProps> = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [windowWidth, setWindowWidth] = useState(1024);
   const [showMobileSearch, setShowMobileSearch] = useState(false);
-  const [isLargeScreen, setIsLargeScreen] = useState(false);
 
   // 화면 크기 감지
   React.useEffect(() => {
     const checkScreenSize = () => {
       setWindowWidth(window.innerWidth);
-      setIsLargeScreen(window.innerWidth > 1200); // page.tsx와 동일한 기준
       // 데스크톱으로 변경되면 모바일 검색창 숨기기
       if (window.innerWidth >= 768) {
         setShowMobileSearch(false);
@@ -72,20 +70,27 @@ const Header: React.FC<HeaderProps> = ({
     }
   }, [showMobileSearch]);
 
-  // 다크모드 감지 (메모이제이션)
-  const isDarkMode = useMemo(
-    () => selectedTheme === "dark" || selectedTheme === "gray-dark",
-    [selectedTheme]
+  // 체크 아이콘 SVG 컴포넌트
+  const CheckIcon = useMemo(
+    () => (
+      <svg
+        width="24"
+        height="24"
+        viewBox="0 0 24 24"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        style={{
+          color: currentTheme.colors.primary.brand,
+        }}
+      >
+        <path
+          d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"
+          fill="currentColor"
+        />
+      </svg>
+    ),
+    [currentTheme.colors.primary.brand]
   );
-
-  // 로고 크기 계산 (메모이제이션) - 화면이 클 때 로고가 더 크게
-  const logoSize = useMemo(() => {
-    if (windowWidth < 480) return "60px"; // 모바일 - 더 크게
-    if (windowWidth < 768) return "70px"; // 태블릿 - 더 크게
-    if (windowWidth < 1024) return "80px"; // 작은 데스크톱 - 더 크게
-    if (windowWidth < 1440) return "90px"; // 중간 데스크톱 - 더 크게
-    return "100px"; // 큰 데스크톱 - 더 크게
-  }, [windowWidth]);
 
   // 스타일 객체들 메모이제이션
   const headerStyles: React.CSSProperties = useMemo(
@@ -115,15 +120,12 @@ const Header: React.FC<HeaderProps> = ({
   const logoMarkStyles: React.CSSProperties = useMemo(
     () => ({
       position: "relative" as const,
-      width: logoSize,
-      height: logoSize,
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
       transition: `all ${currentTheme.animation.duration.fast} ${currentTheme.animation.easing.default}`,
     }),
     [
-      logoSize,
       currentTheme.animation.duration.fast,
       currentTheme.animation.easing.default,
     ]
@@ -146,22 +148,6 @@ const Header: React.FC<HeaderProps> = ({
       alignItems: "center",
     }),
     [currentTheme.spacing]
-  );
-
-  const logoImageStyles: React.CSSProperties = useMemo(
-    () => ({
-      width: logoSize,
-      height: logoSize,
-      objectFit: "contain" as const,
-      filter: isDarkMode ? "brightness(0) invert(1)" : "none",
-      transition: `all ${currentTheme.animation.duration.fast} ${currentTheme.animation.easing.default}`,
-    }),
-    [
-      logoSize,
-      isDarkMode,
-      currentTheme.animation.duration.fast,
-      currentTheme.animation.easing.default,
-    ]
   );
 
   const settingsButtonStyles: React.CSSProperties = useMemo(
@@ -254,7 +240,19 @@ const Header: React.FC<HeaderProps> = ({
       {/* 로고 */}
       <div style={logoContainerStyles}>
         <div style={logoMarkStyles}>
-          <img src="/todo-logo-q.png" alt="Todo 로고" style={logoImageStyles} />
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: currentTheme.spacing["2"],
+              fontSize: currentTheme.typography.fontSize.xl,
+              fontWeight: currentTheme.typography.fontWeight.bold,
+              color: currentTheme.colors.text.primary,
+            }}
+          >
+            {CheckIcon}
+            <span>Plan</span>
+          </div>
         </div>
       </div>
 

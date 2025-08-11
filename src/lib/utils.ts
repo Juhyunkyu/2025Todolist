@@ -6,14 +6,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const HEX_COLOR_REGEX = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i;
 const ID_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
 
-// 시간 상수 (밀리초)
-const TIME_CONSTANTS = {
-  MINUTE: 60 * 1000,
-  HOUR: 60 * 60 * 1000,
-  DAY: 24 * 60 * 60 * 1000,
-  WEEK: 7 * 24 * 60 * 60 * 1000,
-  MONTH: 30 * 24 * 60 * 60 * 1000,
-} as const;
+
 
 /**
  * Combines class names using clsx and tailwind-merge

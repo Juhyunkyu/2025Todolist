@@ -81,7 +81,7 @@ const useScrollNavigation = (
     return () => {
       container.removeEventListener("scroll", checkScrollPosition);
     };
-  }, [checkScrollPosition]);
+  }, [checkScrollPosition, scrollContainerRef]);
 
   const scrollToDirection = useCallback(
     (direction: "left" | "right") => {
