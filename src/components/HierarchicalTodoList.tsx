@@ -60,6 +60,7 @@ const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
   const [newTodoTitle, setNewTodoTitle] = useState("");
   const [message, setMessage] = useState("");
   const [isExpandingAll, setIsExpandingAll] = useState(false);
+  const [isCopying, setIsCopying] = useState(false);
 
   // 커스텀 훅 사용
   const {
@@ -175,11 +176,21 @@ const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
 
   // 할일 목록 복사 핸들러 (하위 항목 포함) - 현재 표시되는 할일들만 복사
   const handleCopyTodos = useCallback(async () => {
-    const result = await copyAllTodos(todos);
-    if (result.success) {
-      setMessage(result.message);
-    } else {
-      setMessage(result.message);
+    setIsCopying(true);
+    try {
+      const result = await copyAllTodos(todos);
+      if (result.success) {
+        // 1.5초 후에 복사 상태 해제
+        setTimeout(() => {
+          setIsCopying(false);
+        }, 1500);
+      } else {
+        setIsCopying(false);
+        setMessage(result.message);
+      }
+    } catch (error) {
+      setIsCopying(false);
+      setMessage("복사에 실패했습니다.");
     }
   }, [copyAllTodos, todos]);
 
@@ -364,8 +375,16 @@ const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
             </Button>
           )}
           {showCopyButton && todos.length > 0 && (
-            <Button variant="secondary" size="sm" onClick={handleCopyTodos}>
-              복사
+            <Button
+              variant={isCopying ? "primary" : "secondary"}
+              size="sm"
+              onClick={handleCopyTodos}
+              disabled={isCopying}
+              style={{
+                transition: `all ${currentTheme.animation.duration.fast} ${currentTheme.animation.easing.default}`,
+              }}
+            >
+              {isCopying ? "✓ 복사됨" : "복사"}
             </Button>
           )}
           {todos.some((todo) => todo.children.length > 0) && (
@@ -396,8 +415,8 @@ const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
         </div>
       )}
 
-      {/* 성공 메시지 */}
-      {message && <div style={styles.message}>{message}</div>}
+      {/* 성공 메시지 (복사 성공 시에는 표시하지 않음) */}
+      {message && !isCopying && <div style={styles.message}>{message}</div>}
 
       {/* 할일 추가 UI */}
       {isAdding && (
