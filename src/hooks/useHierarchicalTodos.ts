@@ -6,6 +6,7 @@ import {
   getHierarchicalTodoProgress,
   reorderHierarchicalTodos,
   expandAllHierarchicalTodos,
+  copyHierarchicalTodosAsMarkdown,
 } from '@/lib/db';
 
 interface TodoState {
@@ -135,12 +136,30 @@ export const useHierarchicalTodos = ({ externalTodos, onUpdate }: UseHierarchica
     calculateProgress();
   }, [calculateProgress]);
 
+  // 할일 목록 복사 (하위 항목 포함) - 필터링된 할일들 또는 전체
+  const copyAllTodos = useCallback(async (filteredTodos?: HierarchicalTodo[]) => {
+    try {
+      const markdown = await copyHierarchicalTodosAsMarkdown(filteredTodos);
+      await navigator.clipboard.writeText(markdown);
+      
+      const message = filteredTodos 
+        ? '필터링된 할일 목록이 클립보드에 복사되었습니다.'
+        : '전체 할일 목록이 클립보드에 복사되었습니다.';
+        
+      return { success: true, message };
+    } catch (error) {
+      console.error('Failed to copy todos:', error);
+      return { success: false, message: '복사에 실패했습니다.' };
+    }
+  }, []);
+
   return {
     ...state,
     loadTodos,
     addTodo,
     expandAll,
     reorderTodos,
+    copyAllTodos,
     clearError: () => setState(prev => ({ ...prev, error: null })),
   };
 };

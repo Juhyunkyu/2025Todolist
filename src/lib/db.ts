@@ -834,9 +834,9 @@ async function updateParentStatus(parentId: string) {
 // 마크다운 복사 함수들
 // ========================
 
-export async function copyHierarchicalTodosAsMarkdown(): Promise<string> {
+export async function copyHierarchicalTodosAsMarkdown(filteredTodos?: TodoPlannerDB['hierarchicalTodos']['value'][]): Promise<string> {
   return await withTransaction(async () => {
-    const rootTodos = await getHierarchicalTodosByParent();
+    const rootTodos = filteredTodos || await getHierarchicalTodosByParent();
     
     const formatTodo = async (todo: TodoPlannerDB['hierarchicalTodos']['value'], level: number = 0): Promise<string> => {
       const indent = '  '.repeat(level);
@@ -855,9 +855,53 @@ export async function copyHierarchicalTodosAsMarkdown(): Promise<string> {
       return result;
     };
 
+    // 날짜별로 그룹화
+    const groupByDate = (todos: TodoPlannerDB['hierarchicalTodos']['value'][]) => {
+      const groups: { [key: string]: TodoPlannerDB['hierarchicalTodos']['value'][] } = {};
+      
+      todos.forEach((todo) => {
+        const date = todo.date || 'no-date';
+        if (!groups[date]) {
+          groups[date] = [];
+        }
+        groups[date].push(todo);
+      });
+      
+      return Object.entries(groups)
+        .sort(([a], [b]) => {
+          if (a === 'no-date') return 1;
+          if (b === 'no-date') return -1;
+          return new Date(a).getTime() - new Date(b).getTime();
+        })
+        .map(([date, todos]) => ({
+          date,
+          todos: todos.sort((a, b) => a.order - b.order),
+        }));
+    };
+
+    // 날짜 포맷팅 함수
+    const formatDate = (dateString: string): string => {
+      if (dateString === 'no-date') return '날짜 미정';
+      
+      const date = new Date(dateString);
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1;
+      const day = date.getDate();
+      const dayOfWeek = ['일', '월', '화', '수', '목', '금', '토'][date.getDay()];
+      return `${year}년 ${month}월 ${day}일 (${dayOfWeek})`;
+    };
+
     let markdown = '# 할일 목록\n\n';
-    for (const todo of rootTodos) {
-      markdown += await formatTodo(todo);
+    
+    // 필터링된 할일이 있으면 날짜별로 그룹화, 없으면 전체를 날짜별로 그룹화
+    const groupedTodos = groupByDate(rootTodos);
+    
+    for (const group of groupedTodos) {
+      markdown += `## ${formatDate(group.date)}\n\n`;
+      for (const todo of group.todos) {
+        markdown += await formatTodo(todo);
+      }
+      markdown += '\n';
     }
     
     return markdown;

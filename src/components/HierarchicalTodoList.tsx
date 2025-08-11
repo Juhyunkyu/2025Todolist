@@ -69,6 +69,7 @@ const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
     addTodo,
     expandAll,
     reorderTodos,
+    copyAllTodos,
     clearError,
   } = useHierarchicalTodos({ externalTodos, onUpdate });
 
@@ -172,19 +173,15 @@ const HierarchicalTodoList: React.FC<HierarchicalTodoListProps> = ({
     [todos, reorderTodos]
   );
 
-  // 할일 목록 복사 핸들러
+  // 할일 목록 복사 핸들러 (하위 항목 포함) - 현재 표시되는 할일들만 복사
   const handleCopyTodos = useCallback(async () => {
-    const markdown = todos
-      .map((todo) => {
-        const checkbox = todo.isDone ? "[x]" : "[ ]";
-        const date = todo.date ? ` (${formatDate(todo.date)})` : "";
-        return `${checkbox} ${todo.title}${date}`;
-      })
-      .join("\n");
-
-    await navigator.clipboard.writeText(markdown);
-    setMessage("할일 목록이 클립보드에 복사되었습니다.");
-  }, [todos]);
+    const result = await copyAllTodos(todos);
+    if (result.success) {
+      setMessage(result.message);
+    } else {
+      setMessage(result.message);
+    }
+  }, [copyAllTodos, todos]);
 
   // 스타일 정의 (메모이제이션)
   const styles = useMemo(
